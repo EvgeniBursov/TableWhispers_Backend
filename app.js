@@ -2,6 +2,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv')
+const cors = require('cors');
+
 
 const client_register_route = require('./routes/client_register_route')
 const client_login_route = require('./routes/client_login_route')
@@ -11,6 +13,9 @@ const res_login_route = require('./routes/res_login_route')
 
 const client_app = express();
 const res_app = express();
+
+client_app.use(cors());
+res_app.use(cors());
 
 client_app.use(bodyParser.json());
 client_app.use(client_register_route);

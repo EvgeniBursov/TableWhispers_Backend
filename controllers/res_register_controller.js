@@ -1,10 +1,10 @@
-const ClientUser = require('../models/Client_User')
+const ResClientUser = require('../models/Res_User')
 const bcrypt = require('bcrypt')
+const generator = require('username-generator');
+const { sendMail } = require('../messages/email_message');
 
-
-const createNewUser = async (req, res) => {
+const createNewResUser = async (req, res) => {
   //need add checking correct pass number age ...
-  console.log("front",req)
   var req_email = req.body.email;
   var req_first_name = req.body.first_name;
   var req_last_name = req.body.last_name;
@@ -12,59 +12,63 @@ const createNewUser = async (req, res) => {
   var req_phone_number = req.body.phone_number;
   var req_pass = req.body.password;
   var req_confirm_pass = req.body.confirm_password;
+  var req_city = req.body.city;
+  var req_restaurant_name = req.body.restaurant_name;
 
-  const check = validatRegister(req_email,req_first_name,req_last_name,req_age,req_phone_number,req_pass,req_confirm_pass)
+  const check = validResRegister(req_email,req_first_name,req_last_name,
+    req_age,req_phone_number,req_pass,req_confirm_pass,req_city,req_restaurant_name)
 
-  if (check.errors !== null) {
-    return res.status(400).json({
-        success: false,
-        errors: check.errors,
-        message: check.message,
-    });
-}
-if (req_confirm_pass!== req_pass) {
-  return res.status(400).json({ 'error': 'the passwords is not same' })
-}
- try{
-    const user = await ClientUser.findOne({'email': req_email})
-    console.log(user,"in email")
+
+  try{
+    const user = await ResClientUser.findOne({'email': req_email})
     if(user != null){
       return res.status(400).json({ error: 'the user is exist' });
-      //return res.status(400).json({ 'alert': 'the user is exist' });
     }
 }catch(err){
-  console.log(err,"in catch")
   return (res,err)
 }
-console.log("after email")
+
 try{
   const salt = await bcrypt.genSalt(10)
   const encryptedPwd = await bcrypt.hash(req_pass,salt)
-  const data = new ClientUser({
+  const username = generator.generateUsername().substring(0, 5);
+  const check_user_name = await ResClientUser.findOne({'user_name': username})
+  
+  if(check_user_name != null){
+    username = generator.generateUsername().substring(0, 6);
+  }
+
+  console.log("Generated Username:", username);
+
+  const data = new ResClientUser({
     email: req_email,
     first_name: req_first_name,
     last_name: req_last_name,
     age: req_age,
     phone_number: req_phone_number,
     password: encryptedPwd,
+    city: req_city,
+    restaurant_name: req_restaurant_name,
+    user_name: username, // need send user name
   })
-  console.log("after data")
-  const new_user = await data.save()
-  res.status(200).send(new_user);
+  const new_res_user = await data.save()
+  sendMail(req_email, username, "username")
+  res.status(200).send(new_res_user);
 }catch(err){
   res.status(400).send(err);
 }
 }
 
 
-
-function validatRegister(email,first_name,last_name,age,phone_number,password,confirm_password) {
+function validResRegister(email,first_name,last_name,age,phone_number,
+  password,confirm_password,city,restaurant) {
   
   const nameRegex = /^[a-zA-Z]{2,}$/; // Minimum 2 letters, only alphabets
-  const ageMin = 16; // Minimum age
+  const ageMin = 18; // Minimum age
   const phoneRegex = /^05\d{8}$/; // 10 digits, starting with 05
   const emailRegex = /^[a-zA-Z0-9]+@[a-zA-Z0-9]+\.[a-zA-Z]{2,}$/; // Basic email format
-  const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  const resNamewRegex = /^[a-zA-Z0-9]{2,}$/
 
   /*
   const isFirstNameValid = nameRegex.test(firstName);
@@ -74,7 +78,6 @@ function validatRegister(email,first_name,last_name,age,phone_number,password,co
   const isEmailValid = emailRegex.test(email);
   const isPasswordValid = passwordRegex.test(password);
   */
-
   const errors = {};
 
     if (!nameRegex.test(first_name)) {
@@ -99,7 +102,15 @@ function validatRegister(email,first_name,last_name,age,phone_number,password,co
     if (!passwordRegex.test(confirm_password)) {
       errors.password =
           "Password must contain at least 1 uppercase letter, 1 lowercase letter, 1 special character, 1 number, and be at least 6 characters long.";
-  }
+    }
+    if (!nameRegex.test(city)) {
+      errors.nameRegex =
+          "City name must have at least 2 letters.";
+    }
+    if (!resNamewRegex.test(restaurant)) {
+      errors.restaurant =
+          "Restaurant name must have at least 2 letters or digits."
+    }
 
     return {
         success: Object.keys(errors).length === 0,
@@ -112,6 +123,8 @@ function validatRegister(email,first_name,last_name,age,phone_number,password,co
 }
 
 
+
+
   module.exports = {
-    createNewUser,
+    createNewResUser,
   }
