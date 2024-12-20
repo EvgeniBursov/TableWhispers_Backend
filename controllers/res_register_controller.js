@@ -1,3 +1,4 @@
+//TODO תנאי שימוש חסרים
 const ResClientUser = require('../models/Res_User')
 const bcrypt = require('bcrypt')
 const generator = require('username-generator');
