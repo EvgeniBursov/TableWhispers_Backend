@@ -30,6 +30,7 @@ const ResLoginUser = async (req, res) => {
         if(logUser.phone_number !== req_phone_number){
           return res.status(300).json({ 'error': "incorrect phone number"})
         }
+        
         authenticator.options = { step: 360}
         logUser.twoFa = authenticator.generateSecret()
         await logUser.save();
