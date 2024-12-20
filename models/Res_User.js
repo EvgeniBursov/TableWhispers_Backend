@@ -37,6 +37,10 @@ const ResUserSchema = new mongoose.Schema({
       type: String,
       required: false
   },
+  twoFa:{
+    type: String,
+    required: false
+},
 }, { timestamps: true });
 
 //add photo... 

@@ -1,6 +1,6 @@
 const ClientUser = require('../models/Client_User')
 const bcrypt = require('bcrypt')
-
+//TODO תנאי שימוש חסרים
 
 const createNewUser = async (req, res) => {
   //need add checking correct pass number age ...
