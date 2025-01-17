@@ -1,5 +1,6 @@
 const ClientUser = require('../models/Client_User')
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcrypt');
+const { createToken } = require('./auth');
 //TODO תנאי שימוש חסרים
 
 const createNewUser = async (req, res) => {
@@ -12,16 +13,16 @@ const createNewUser = async (req, res) => {
   var req_phone_number = req.body.phone_number;
   var req_pass = req.body.password;
   var req_confirm_pass = req.body.confirm_password;
-
-  const check = validatRegister(req_email, req_first_name, req_last_name, req_age, req_phone_number, req_pass, req_confirm_pass)
-
-  if (check.errors !== null) {
+  //const check = validatRegister(req_email, req_first_name, req_last_name, req_age, req_phone_number, req_pass, req_confirm_pass)
+  
+  /*if (check.errors !== null) {
     return res.status(400).json({
       success: false,
       errors: check.errors,
       message: check.message,
     });
-  }
+  }*/
+
   if (req_confirm_pass !== req_pass) {
     return res.status(400).json({ 'error': 'the passwords is not same' })
   }
@@ -30,7 +31,7 @@ const createNewUser = async (req, res) => {
     console.log(user, "in email")
     if (user != null) {
       return res.status(400).json({ error: 'the user is exist' });
-      //return res.status(400).json({ 'alert': 'the user is exist' });
+      //return res.error.json({ 'alert': 'the user is exist' });
     }
   } catch (err) {
     console.log(err, "in catch")
@@ -50,7 +51,8 @@ const createNewUser = async (req, res) => {
     })
     console.log("after data")
     const new_user = await data.save()
-    res.status(200).send(new_user);
+    const token = createToken(new_user._id)
+    res.status(200).send({"user":new_user,"token":token});
   } catch (err) {
     res.status(400).send(err);
   }

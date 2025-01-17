@@ -11,6 +11,10 @@ const client_login_route = require('./routes/client_login_route')
 const res_register_route = require('./routes/res_register_route')
 const res_login_route = require('./routes/res_login_route')
 
+const send_totp_code_to_client = require('./routes/auth')
+const verify_totp_code = require('./routes/auth')
+const reset_user_password = require('./routes/auth')
+
 const client_app = express();
 const res_app = express();
 
@@ -20,6 +24,7 @@ res_app.use(cors());
 client_app.use(bodyParser.json());
 client_app.use(client_register_route);
 client_app.use(client_login_route);
+client_app.use(send_totp_code_to_client,verify_totp_code,reset_user_password);
 
 res_app.use(bodyParser.json());
 res_app.use(res_register_route);

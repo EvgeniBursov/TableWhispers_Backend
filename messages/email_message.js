@@ -1,8 +1,11 @@
 const nodemailer = require('nodemailer')
 const { authenticator } = require('otplib');
 
+const dotenv = require('dotenv')
+dotenv.config()
 
-authenticator.options = { step: 60 };
+
+authenticator.options = { step: 360 };
 console.log("Current time step:", authenticator.options.step);
 
 const transporter = nodemailer.createTransport({
@@ -11,11 +14,10 @@ const transporter = nodemailer.createTransport({
     port: '465',
     secure: true,
     auth: {
-      user: 'evgenbu2@ac.sce.ac.il',
-      pass: 'vvfdgbtrdtoutjdb',
+      user: process.env.EMAIL, 
+      pass: process.env.EMAIL_PASSWORD,
     },
   });
-
 
 async function sendMail(mail, token, scenario) {
   let message;
@@ -38,7 +40,7 @@ async function sendMail(mail, token, scenario) {
   const mailOptions = {
       from: {
           name: 'Evgeni',
-          address: 'evgenbu2@ac.sce.ac.il',
+          address: process.env.EMAIL,
       },  
       to: mail,
       subject: 'Your Inforamtion from TableWhispers',

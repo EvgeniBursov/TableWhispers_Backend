@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const UserOrder = require('./User_Order')
 
+
 const ClientUserSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -26,19 +27,15 @@ const ClientUserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  twoFa: {
-    type: String,
-    required: false
-  },
   allergies: {
     type: String,
     required: false
   },
   orders: {
-    type: [UserOrder], // מערך של הזמנות
-    default: [],
-    required: false
-  }
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserOrder', // Reference the UserOrder model
+  },
+  totpSecret: String,
 
 }, { timestamps: true });
 

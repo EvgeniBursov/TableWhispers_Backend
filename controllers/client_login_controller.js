@@ -1,5 +1,6 @@
 const ClientUser = require('../models/Client_User')
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcrypt');
+const { createToken } = require('./auth');
 
 
 const LoginUser = async (req, res) => {
@@ -24,7 +25,9 @@ const LoginUser = async (req, res) => {
           //await logUser.save();
           //const token = authenticator.generate(logUser.twoFa);
           //sendMail(req_email, token)
-          return res.status(200).json({ 'connect': logUser});
+          const token = createToken(logUser._id)
+          return res.status(200).send({"user":logUser,"token":token});
+          //return res.status(200).json({ 'connect': logUser,token});
         }
       } catch (err) {
         console.error(err);
