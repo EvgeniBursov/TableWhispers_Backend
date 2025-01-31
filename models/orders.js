@@ -1,16 +1,17 @@
 const mongoose = require('mongoose');
-const RestaruntSchema = require('./Restarunt')
 
 const userOderSchema = new mongoose.Schema({
-
-  restaurant: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'RestaruntSchema', 
-    required: true
+  orderId: {
+    type: String,
+    required: true,
   },
-  guests:{
-    type: Number,
-    required: true
+  items: {
+    type: [String], // רשימת פריטים שהוזמנו
+    required: true,
+  },
+  totalAmount: {
+    type: Number, // סכום כולל להזמנה
+    required: true,
   },
   status: {
     type: String,

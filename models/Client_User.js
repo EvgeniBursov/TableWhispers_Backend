@@ -32,10 +32,10 @@ const ClientUserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'allergies'
   }],
-  orders: {
+  orders: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'UserOrder', // Reference the UserOrder model
-  },
+  }],
   totpSecret: String,
 
 }, { timestamps: true });
