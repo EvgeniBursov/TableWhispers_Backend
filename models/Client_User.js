@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const UserOrder = require('./User_Order')
+const allergies = require('./Allergies')
 
 
 const ClientUserSchema = new mongoose.Schema({
@@ -27,10 +28,10 @@ const ClientUserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  allergies: {
-    type: String,
-    required: false
-  },
+  allergies: [{            
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'allergies'
+  }],
   orders: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'UserOrder', // Reference the UserOrder model

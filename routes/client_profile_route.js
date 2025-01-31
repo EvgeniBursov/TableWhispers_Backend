@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
 
-const { userData, deleteClientProfile } = require('../controllers/client_profile')
+const { userData, deleteClientProfile, getListOfAllergies } = require('../controllers/client_profile')
 const { changeClientPassword } = require('../controllers/auth')
 
 
 
 router.get('/userProfile', userData);
+
+router.get('/getListOfAllergies', getListOfAllergies);
 
 router.post('/resetClientPassword',changeClientPassword);
 

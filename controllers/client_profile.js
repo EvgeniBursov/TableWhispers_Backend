@@ -1,13 +1,11 @@
 const ClientUser = require('../models/Client_User')
-
+const allergies = require('../models/Allergies')
 
 const userData = async (req,res) =>{
     const req_email = req.query.email;
-    //console.log(req)
-    //const req_user_id = req.body.user_id
     try {
-        //const clientData = await ClientUser.findById(req_user_id)
-        const clientData = await ClientUser.findOne({ 'email': req_email })
+        const clientData = await ClientUser.findOne({ email: "bursov19951@gmail.com" }).populate('allergies', 'name');
+
         console.log("In User Data")
         if (!clientData) {
             console.log("In IF User Data")
@@ -34,7 +32,7 @@ const userData = async (req,res) =>{
           email: clientData.email,
           phone_number: clientData.phone_number,
           //profileImage: clientData.profileImage,
-          allergies: clientData.allergies,
+          allergies: clientData.allergies.map(a => a.name),
           //upcomingReservations,
           //pastReservations
         });
@@ -73,11 +71,9 @@ const deleteClientProfile = async (req, res) => {
   
 
 
-
-
 const updateUserAlergic = async (req, res) => {
     var req_email = req.body.email;
-    var req_alergic = req.body.alergic;
+    var req_alergic = req.body.allergies;
     try {
         const user = await ClientUser.findOne({ 'email': req_email })
         if (user != null) {
@@ -93,8 +89,24 @@ const updateUserAlergic = async (req, res) => {
         console.error('Error adding allergy:');
         return (res, err)
     }
-
 }
+
+
+const getListOfAllergies = async (req,res) =>{
+  try {
+    const ListOfAllergies = await allergies.find({}, 'name');
+    if (!ListOfAllergies || ListOfAllergies.length === 0) {
+      console.log("No allergies found");
+      return res.status(404).json({ error: 'No allergies found' });
+    }
+    return res.status(200).json(ListOfAllergies);
+    
+  } catch (err) {
+    console.error('Error getting allergies:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 
 const updateUserPhoneNumber = async (req, res) => {
     var req_email = req.body.email;
@@ -127,5 +139,6 @@ const updateUserPhoneNumber = async (req, res) => {
 
     module.exports = {
         userData,
-        deleteClientProfile
+        deleteClientProfile,
+        getListOfAllergies
     }
