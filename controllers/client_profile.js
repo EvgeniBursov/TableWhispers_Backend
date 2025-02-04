@@ -117,25 +117,42 @@ const deleteClientProfile = async (req, res) => {
   
 
 
-const updateUserAlergic = async (req, res) => {
-    var req_email = req.body.email;
-    var req_alergic = req.body.allergies;
+  const updateUserAlergic = async (req, res) => {
+    const { email, name_allergies, type } = req.body;
+    console.log(email, name_allergies, type)
     try {
-        const user = await ClientUser.findOne({ 'email': req_email })
-        if (user != null) {
-            return res.status(400).json({ error: 'the user is exist' });
+        const allergyDoc = await allergies.findOne({ name: name_allergies });
+        if (!allergyDoc) {
+            return res.status(404).json({ error: 'Allergy not found in database' });
         }
-        const updatedAllergies = user.allergies
-            ? `${user.allergies}, ${newAllergy}`.trim()
-            : newAllergy;
-        user.allergies = updatedAllergies;
+        const user = await ClientUser.findOne({ email }).populate('allergies');
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+ 
+        if (type === "update") {
+            const hasAllergy = user.allergies.some(a => a._id.equals(allergyDoc._id));
+            if (hasAllergy) {
+                return res.status(400).json({ error: 'User already has this allergy' });
+            }
+            user.allergies.push(allergyDoc._id);
+        } 
+        else if (type === "remove") {
+            user.allergies = user.allergies.filter(a => !a._id.equals(allergyDoc._id));
+        }
         await user.save();
-        console.log('Allergy added successfully:', user.allergies);
+        const updatedUser = await ClientUser.findOne({ email }).populate('allergies');
+        
+        return res.status(200).json({ 
+            message: `Allergy ${type === "update" ? "added" : "removed"} successfully`,
+            allergies: updatedUser.allergies.map(a => a.name)
+        });
+ 
     } catch (err) {
-        console.error('Error adding allergy:');
-        return (res, err)
+        console.error('Error:', err);
+        return res.status(500).json({ error: err.message });
     }
-}
+ }
 
 
 const getListOfAllergies = async (req,res) =>{
@@ -186,5 +203,6 @@ const updateUserPhoneNumber = async (req, res) => {
     module.exports = {
         userData,
         deleteClientProfile,
-        getListOfAllergies
+        getListOfAllergies,
+        updateUserAlergic
     }

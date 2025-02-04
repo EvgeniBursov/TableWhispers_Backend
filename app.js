@@ -16,7 +16,7 @@ const verify_totp_code = require('./routes/auth')
 const reset_user_password = require('./routes/auth')
 
 const client_profile = require('./routes/client_profile_route')
-const ListOfAllergies = require('./routes/client_profile_route')
+//const ListOfAllergies = require('./routes/client_profile_route')
 
 const client_app = express();
 const res_app = express();
@@ -28,7 +28,8 @@ client_app.use(bodyParser.json());
 client_app.use(client_register_route);
 client_app.use(client_login_route);
 client_app.use(send_totp_code_to_client,verify_totp_code,reset_user_password);
-client_app.use(client_profile,ListOfAllergies);
+//client_app.use(client_profile,ListOfAllergies);
+client_app.use(client_profile);
 
 res_app.use(bodyParser.json());
 res_app.use(res_register_route);

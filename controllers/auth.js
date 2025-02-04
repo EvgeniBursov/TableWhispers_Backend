@@ -4,6 +4,8 @@ const ResUser = require('../models/Res_User')
 const { sendMail } = require('../messages/email_message');
 const { authenticator } = require ('otplib');
 
+
+
 const jwt = require('jsonwebtoken')
 
 const dotenv = require('dotenv')
@@ -59,6 +61,7 @@ const verifyTotpCode = async(req,res) =>{
 }
 
 const changeClientPassword = async (req, res) => {
+  console.log(req.body)
   const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
   const { email: req_email, password: req_pass, confirm_password: req_confirm_pass } = req.body;
 
