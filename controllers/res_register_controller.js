@@ -43,6 +43,7 @@ try{
   console.log("Generated Username:", username);
 
   const data = new ResClientUser({
+    user_type: "Restaurant",
     email: req_email,
     first_name: req_first_name,
     last_name: req_last_name,

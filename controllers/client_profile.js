@@ -4,7 +4,7 @@ const allergies = require('../models/Allergies')
 const userData = async (req, res) => {
   const req_email = req.query.email;
   try {
-    const clientData = await ClientUser.findOne({ email: "bursov19951@gmail.com" })      
+    const clientData = await ClientUser.findOne({ email: req_email })      
       .populate('allergies', 'name')
       .populate({
         path: 'orders',

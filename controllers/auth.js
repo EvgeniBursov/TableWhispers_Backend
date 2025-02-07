@@ -12,15 +12,15 @@ const dotenv = require('dotenv')
 dotenv.config()
 
 
-
-
 const sendTotpCodeForClientUser = async (req, res) => {
     const req_email = req.body.email;
-    if (!req_email.length) {
+    const req_user_type = req.body.user_type;
+    console.log("Start send Totp Code For Client User")
+    if(req_user_type === "Client"){
+      if (!req_email.length) {
         return res.status(300).json({ 'error': 'Fill email' });
       }
       try {
-        // Find the user by email
         const logUser = await ClientUser.findOne({ 'email': req_email });
         if (!logUser) {
           return res.status(300).json({ 'error': 'Incorrect user' });
@@ -35,31 +35,78 @@ const sendTotpCodeForClientUser = async (req, res) => {
         console.error(err);
         return res.status(500).json({ 'alert': 'Fail checking user' });
       }
+    }
+    else if(req_user_type === "Restaurant"){
+      if (!req_email.length) {
+        return res.status(300).json({ 'error': 'Fill email' });
+      }
+      try {
+        const restaurantUser = await ResUser.findOne({ 'email': req_email });
+        if (!restaurantUser) {
+          return res.status(300).json({ 'error': 'Incorrect user' });
+        }
+        authenticator.options = { step: 360}
+        restaurantUser.totpSecret = authenticator.generateSecret()
+        await restaurantUser.save();
+        const totp_token = authenticator.generate(restaurantUser.totpSecret);
+        sendMail(req_email, totp_token,'totp')
+        return res.status(200).json({ 'restaurantUser': logUser});
+      } catch (err) {
+        console.error(err);
+        return res.status(500).json({ 'error': 'Fail checking user' });
+      }
+    }
+    else{
+      return res.status(500).json({ 'error': 'Error user type' });
+    }
+    
 }
 
 const verifyTotpCode = async(req,res) =>{
-  //add case for res
     const req_email = req.body.email 
     const req_code = req.body.totp_code;
-    console.log(req_email,req_code)
-    try {
-      // Find the user by email
-      const logUser = await ClientUser.findOne({ 'email': req_email });
-      if (!logUser) {
-        return res.status(400).json({ 'error': 'Incorrect user' });
+    const req_user_type = req.body.user_type
+    console.log("Start verify Totp Code")
+    console.log(req_email,req_code,req_user_type)
+    if(req_user_type === "Client"){
+      try {
+        const logUser = await ClientUser.findOne({ 'email': req_email });
+        if (!logUser) {
+          return res.status(400).json({ 'error': 'Incorrect user' });
+        }
+        const match_secret = authenticator.check(req_code,logUser.totpSecret)
+        console.log(match_secret)
+        if(!match_secret) {
+          return res.status(400).json({ 'error': "incorrect token"})
+        }else{
+          console.log("Correct totp")
+          return res.status(200).json({ 'verifyClientUser': match_secret});
+        } 
+      } catch (err) {
+        console.error(err);
+        return res.status(500).json({ 'error': 'Fail checking user' });
       }
-      console.log(req_code,logUser.totpSecret)
-      const match_secret = authenticator.check(req_code,logUser.totpSecret)
-      console.log(match_secret)
-      if(!match_secret) {
-        return res.status(400).json({ 'error': "incorrect token"})
-      }else{
-        console.log("Correct totp")
-        return res.status(200).json({ 'verifyClientUser': match_secret});
-      } 
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ 'error': 'Fail checking user' });
+    }
+    else if(req_user_type === "Restaurant"){
+      try {
+        const restaurantUser = await ResUser.findOne({ 'email': req_email });
+        if (!restaurantUser) {
+          return res.status(400).json({ 'error': 'Incorrect user' });
+        }
+        const match_secret = authenticator.check(req_code,restaurantUser.totpSecret)
+        console.log(match_secret)
+        if(!match_secret) {
+          return res.status(400).json({ 'error': "incorrect token"})
+        }else{
+          console.log("Correct totp")
+          return res.status(200).json({ 'verifyClientUser': match_secret});
+        } 
+      } catch (err) {
+        console.error(err);
+        return res.status(500).json({ 'error': 'Fail checking Restaurant user' });
+      }
+    }else{
+      return res.status(500).json({ 'error': 'Error user type' });
     }
 }
 
@@ -181,8 +228,14 @@ try{
 }
 
 
-const createToken = (id) => {
-  return jwt.sign({id}, process.env.JWT_SECRET)
+const createToken = (id,email) => {
+  return jwt.sign(
+    {
+      id,
+      email 
+    }, 
+    process.env.JWT_SECRET
+  );
 }
 
 

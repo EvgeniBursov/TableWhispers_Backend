@@ -19,15 +19,8 @@ const LoginUser = async (req, res) => {
         if(!match_pass) {
           return res.status(300).json({ 'alert': "incorrect password"})
         }else{
-          //authenticator.options = { step: 360}
-          //logUser.access = false;
-          //logUser.twoFa = authenticator.generateSecret()
-          //await logUser.save();
-          //const token = authenticator.generate(logUser.twoFa);
-          //sendMail(req_email, token)
-          const token = createToken(logUser._id)
+          const token = createToken(logUser._id,logUser.email)
           return res.status(200).send({"user":logUser,"token":token});
-          //return res.status(200).json({ 'connect': logUser,token});
         }
       } catch (err) {
         console.error(err);

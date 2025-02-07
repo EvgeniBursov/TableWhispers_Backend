@@ -33,10 +33,10 @@ const ResLoginUser = async (req, res) => {
         }
         
         authenticator.options = { step: 360}
-        logUser.twoFa = authenticator.generateSecret()
+        logUser.totpSecret = authenticator.generateSecret()
         await logUser.save();
-        const token = authenticator.generate(logUser.twoFa);
-        sendMail(req_email, token)
+        const token = authenticator.generate(logUser.totpSecret);
+        sendMail(req_email, token, 'totp')
         return res.status(200).json({ 'connect': logUser});
         }
        catch (err) {

@@ -42,6 +42,7 @@ const createNewUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10)
     const encryptedPwd = await bcrypt.hash(req_pass, salt)
     const data = new ClientUser({
+      user_type: "Client",
       email: req_email,
       first_name: req_first_name,
       last_name: req_last_name,
