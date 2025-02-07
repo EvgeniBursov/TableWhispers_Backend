@@ -4,6 +4,10 @@ const allergies = require('./Allergies')
 
 
 const ClientUserSchema = new mongoose.Schema({
+  user_type: {
+    type: String,
+    required: true
+  },
   email: {
     type: String,
     required: true

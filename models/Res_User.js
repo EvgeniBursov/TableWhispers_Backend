@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const ResUserSchema = new mongoose.Schema({
+  user_type: {
+    type: String,
+    required: true
+  },
     email:{
         type: String,
         required: true
@@ -37,10 +41,7 @@ const ResUserSchema = new mongoose.Schema({
       type: String,
       required: false
   },
-  twoFa:{
-    type: String,
-    required: false
-},
+  totpSecret: String,
 }, { timestamps: true });
 
 //add photo... 
