@@ -5,6 +5,7 @@ const generator = require('username-generator');
 const { sendMail } = require('../messages/email_message');
 
 const createNewResUser = async (req, res) => {
+  
   //need add checking correct pass number age ...
   var req_email = req.body.email;
   var req_first_name = req.body.first_name;
@@ -15,10 +16,10 @@ const createNewResUser = async (req, res) => {
   var req_confirm_pass = req.body.confirm_password;
   var req_city = req.body.city;
   var req_restaurant_name = req.body.restaurant_name;
-
-  const check = validResRegister(req_email,req_first_name,req_last_name,
+  console.log(req_email,req_first_name,req_last_name,req_age,req_phone_number,req_pass,req_confirm_pass,req_city,req_restaurant_name)
+  /*const check = validResRegister(req_email,req_first_name,req_last_name,
     req_age,req_phone_number,req_pass,req_confirm_pass,req_city,req_restaurant_name)
-
+*/
 
   try{
     const user = await ResClientUser.findOne({'email': req_email})
@@ -60,7 +61,7 @@ try{
 }
 }
 
-
+/* 
 function validResRegister(email,first_name,last_name,age,phone_number,
   password,confirm_password,city,restaurant) {
   
@@ -70,7 +71,7 @@ function validResRegister(email,first_name,last_name,age,phone_number,
   const emailRegex = /^[a-zA-Z0-9]+@[a-zA-Z0-9]+\.[a-zA-Z]{2,}$/; // Basic email format
   const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   const resNamewRegex = /^[a-zA-Z0-9]{2,}$/
-
+*/
   /*
   const isFirstNameValid = nameRegex.test(firstName);
   const isLastNameValid = nameRegex.test(lastName);
@@ -79,6 +80,8 @@ function validResRegister(email,first_name,last_name,age,phone_number,
   const isEmailValid = emailRegex.test(email);
   const isPasswordValid = passwordRegex.test(password);
   */
+
+  /*
   const errors = {};
 
     if (!nameRegex.test(first_name)) {
@@ -121,7 +124,7 @@ function validResRegister(email,first_name,last_name,age,phone_number,
                 ? "Validation successful."
                 : "Validation failed. Check the errors for more details.",
     };
-}
+}*/
 
 
 

@@ -38,22 +38,25 @@ const sendTotpCodeForClientUser = async (req, res) => {
 }
 
 const verifyTotpCode = async(req,res) =>{
+  //add case for res
     const req_email = req.body.email 
     const req_code = req.body.totp_code;
+    console.log(req_email,req_code)
     try {
       // Find the user by email
       const logUser = await ClientUser.findOne({ 'email': req_email });
       if (!logUser) {
-        return res.json({ 'error': 'Incorrect user' });
+        return res.status(400).json({ 'error': 'Incorrect user' });
       }
       console.log(req_code,logUser.totpSecret)
       const match_secret = authenticator.check(req_code,logUser.totpSecret)
       console.log(match_secret)
       if(!match_secret) {
-        return res.json({ 'error': "incorrect token"})
+        return res.status(400).json({ 'error': "incorrect token"})
       }else{
+        console.log("Correct totp")
         return res.status(200).json({ 'verifyClientUser': match_secret});
-      }
+      } 
     } catch (err) {
       console.error(err);
       return res.status(500).json({ 'error': 'Fail checking user' });

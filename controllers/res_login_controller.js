@@ -2,6 +2,7 @@ const ResClientUser = require('../models/Res_User')
 const bcrypt = require('bcrypt')
 const generator = require('username-generator');
 const { sendMail } = require('../messages/email_message');
+const { authenticator } = require ('otplib');
 
 
 const ResLoginUser = async (req, res) => {
@@ -9,8 +10,8 @@ const ResLoginUser = async (req, res) => {
     const req_username = req.body.username;
     const req_pass = req.body.password;
     const req_phone_number = req.body.phone_number;
-
-    if (!req_email.length || !req_pass.length || req_username.length || req_phone_number) {
+    console.log(req_email.length,req_username,req_pass,req_phone_number)
+    if (!req_email.length || !req_pass.length || !req_username.length || !req_phone_number.length) {
         return res.status(300).json({ 'error': 'Fill in all fields' });
       }
       try {
