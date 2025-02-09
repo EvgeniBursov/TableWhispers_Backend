@@ -10,12 +10,15 @@ const client_login_route = require('./routes/client_login_route')
 
 const res_register_route = require('./routes/res_register_route')
 const res_login_route = require('./routes/res_login_route')
+const restaurants_route = require('./routes/restaurants_route')
 
 const send_totp_code_to_client = require('./routes/auth')
 const verify_totp_code = require('./routes/auth')
 const reset_user_password = require('./routes/auth')
 
 const client_profile = require('./routes/client_profile_route')
+
+const upload_image_route = require('./upload_image/upload_image_service')
 //const ListOfAllergies = require('./routes/client_profile_route')
 
 const client_app = express();
@@ -30,10 +33,14 @@ client_app.use(client_login_route);
 client_app.use(send_totp_code_to_client,verify_totp_code,reset_user_password);
 //client_app.use(client_profile,ListOfAllergies);
 client_app.use(client_profile);
+client_app.use('/public', express.static('public'));
 
 res_app.use(bodyParser.json());
 res_app.use(res_register_route);
 res_app.use(res_login_route);
+res_app.use(restaurants_route);
+res_app.use(upload_image_route);
+res_app.use('/public', express.static('public'));
 
 dotenv.config()
 
