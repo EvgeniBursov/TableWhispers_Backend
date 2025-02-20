@@ -17,6 +17,17 @@ const RestaruntSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    main_image: {
+        type: String,
+        required: false
+      },
+    all_images: [{
+        type: String,
+        required: false
+      }],
+    rating:{
+      type: Number
+    },
 }, { timestamps: true });
 
 
