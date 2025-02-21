@@ -54,7 +54,16 @@ const RestaruntSchema = new mongoose.Schema({
   reviews: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ReviewSchema'
-}],
+  }],
+  tables:[{
+    tableNumber: Number,
+    seats: Number,
+    location: String 
+  }],
+  reservation_id: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserOrder'
+  }],
 }, { timestamps: true });
 
 

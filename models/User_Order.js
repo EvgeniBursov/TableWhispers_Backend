@@ -8,19 +8,32 @@ const userOderSchema = new mongoose.Schema({
     ref: 'RestaruntSchema', 
     required: true
   },
+  client_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ClientUser', 
+    required: true
+  },
   guests:{
     type: Number,
     required: true
   },
   status: {
     type: String,
-    enum: ['Planing', 'Done'], // סטטוס ההזמנה: חדשה או ישנה
+    enum: ['Planing', 'Done','Cancelled'], // סטטוס ההזמנה: חדשה או ישנה
     required: true,
   },
   orderDate: {
     type: Date,
-    default: Date.now, // תאריך יצירת ההזמנה
+    default: Date.now,
+  },
+  start_time: {
+    type: Date,
+  },
+  end_time: {
+    type: Date,
   },
 });
 
 module.exports = mongoose.model('UserOrder', userOderSchema);
+
+
