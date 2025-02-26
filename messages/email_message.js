@@ -31,6 +31,9 @@ async function sendMail(mail, token, scenario) {
     case 'password':
         message = `Your password is: ${token}`;
         break;
+    case 'order_info':
+        message = `Your order:\n ${token}`;
+        break;
     default:
         message = `Your information is: ${token}`;
         break;

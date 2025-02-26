@@ -19,7 +19,7 @@ const userOderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Planing', 'Done','Cancelled'], // סטטוס ההזמנה: חדשה או ישנה
+    enum: ['Planning', 'Done','Cancelled'], // סטטוס ההזמנה: חדשה או ישנה
     required: true,
   },
   orderDate: {
