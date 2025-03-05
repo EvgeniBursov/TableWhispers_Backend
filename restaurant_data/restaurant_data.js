@@ -53,26 +53,17 @@ const all_Restaurants_Data = async (req, res) => {
 
 const Restaurants_Reservation = async (req, res) => {
   console.log("Start Restaurants_Reservation");
-
-  const restaurantId = req.body.id;
+  const restaurantId = req.params.id;
   if (!restaurantId) {
     return res.status(400).json({ error: 'Restaurant ID is undefined' });
   }
 
   try {
+    // Find all reservations for this restaurant
     const restaurant = await restaurants.findById(restaurantId)
       .populate({
-        path: 'reservation_id', // משתמשים בשם השדה הנכון מהמודל
-        populate: [{
-          path: 'client_id',
-          model: 'ClientUser',
-          select: 'first_name last_name email phone_number allergies',
-          populate: {
-            path: 'allergies',
-            model: 'allergies',
-            select: 'name severity'
-          }
-        }]
+        path: 'reservation_id',
+        // Don't populate client_id yet
       })
       .select('res_name phone_number city full_address description rating reservation_id tables')
       .lean();
@@ -83,7 +74,76 @@ const Restaurants_Reservation = async (req, res) => {
         message: 'Restaurant not found'
       });
     }
+
     const reservations = restaurant.reservation_id || [];
+    
+    // Process each reservation to get client information
+    const processedReservations = [];
+    
+    for (const reservation of reservations) {
+      let customerInfo = null;
+      
+      // First, try to find a registered user
+      if (reservation.client_id) {
+        const registeredUser = await ClientUser.findById(reservation.client_id)
+          .populate('allergies', 'name severity')
+          .lean();
+        
+        if (registeredUser) {
+          customerInfo = {
+            id: registeredUser._id,
+            firstName: registeredUser.first_name,
+            lastName: registeredUser.last_name,
+            email: registeredUser.email,
+            phone: registeredUser.phone_number,
+            allergies: registeredUser.allergies?.map(allergy => ({
+              name: allergy.name,
+              severity: allergy.severity
+            })) || [],
+            userType: 'registered'
+          };
+        }
+      }
+      
+      // If no registered user found, try to find a guest user
+      // Assuming there's some way to connect reservations to guest users
+      // You'll need to adjust this based on your actual schema!
+      if (!customerInfo) {
+        // This is a placeholder - you need to determine how guest users are
+        // connected to reservations in your database
+        const guestUser = await ClientGuest.findOne({
+          // This condition needs to be replaced with your actual logic
+          // Examples:
+          // reservation_id: reservation._id
+          // or maybe you have a field like:
+          // email: reservation.contact_email
+        }).lean();
+        
+        if (guestUser) {
+          customerInfo = {
+            id: guestUser._id,
+            firstName: guestUser.first_name,
+            lastName: guestUser.last_name,
+            email: guestUser.email,
+            phone: guestUser.phone_number,
+            allergies: [],
+            userType: 'guest'
+          };
+        }
+      }
+      
+      processedReservations.push({
+        id: reservation._id,
+        orderDetails: {
+          guests: reservation.guests,
+          status: reservation.status,
+          orderDate: reservation.orderDate,
+          startTime: reservation.start_time,
+          endTime: reservation.end_time
+        },
+        customer: customerInfo
+      });
+    }
 
     const formattedResponse = {
       success: true,
@@ -97,29 +157,10 @@ const Restaurants_Reservation = async (req, res) => {
         rating: restaurant.rating,
         tables: restaurant.tables
       },
-      reservations: reservations.map(reservation => ({
-        id: reservation._id,
-        orderDetails: {
-          guests: reservation.guests,
-          status: reservation.status,
-          orderDate: reservation.orderDate,
-          startTime: reservation.start_time,
-          endTime: reservation.end_time
-        },
-        customer: reservation.client_id ? {
-          id: reservation.client_id._id,
-          firstName: reservation.client_id.first_name,
-          lastName: reservation.client_id.last_name,
-          email: reservation.client_id.email,
-          phone: reservation.client_id.phone_number,
-          allergies: reservation.client_id.allergies?.map(allergy => ({
-            name: allergy.name,
-            severity: allergy.severity
-          })) || []
-        } : null
-      }))
+      reservations: processedReservations
     };
-
+    
+    console.log("END of Restaurants_Reservation");
     res.status(200).json(formattedResponse);
 
   } catch (error) {
@@ -131,6 +172,7 @@ const Restaurants_Reservation = async (req, res) => {
     });
   }
 };
+
 
 const add_New_Reviews = async (req, res) =>{
   try{
