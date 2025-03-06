@@ -1,28 +1,44 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv')
+const dotenv = require('dotenv');
 const cors = require('cors');
+const http = require('http'); // Added for WebSockets
+const { Server } = require('socket.io'); // Added for WebSockets
 
+const client_register_route = require('./routes/client_register_route');
+const client_login_route = require('./routes/client_login_route');
 
-const client_register_route = require('./routes/client_register_route')
-const client_login_route = require('./routes/client_login_route')
+const res_register_route = require('./routes/res_register_route');
+const res_login_route = require('./routes/res_login_route');
+const restaurants_route = require('./routes/restaurants_route');
 
-const res_register_route = require('./routes/res_register_route')
-const res_login_route = require('./routes/res_login_route')
-const restaurants_route = require('./routes/restaurants_route')
+const send_totp_code_to_client = require('./routes/auth');
+const verify_totp_code = require('./routes/auth');
+const reset_user_password = require('./routes/auth');
 
-const send_totp_code_to_client = require('./routes/auth')
-const verify_totp_code = require('./routes/auth')
-const reset_user_password = require('./routes/auth')
+const client_profile = require('./routes/client_profile_route');
 
-const client_profile = require('./routes/client_profile_route')
+const upload_image_route = require('./upload_image/upload_image_service');
 
-const upload_image_route = require('./upload_image/upload_image_service')
+const tables_management = require('./routes/tables_route');
 //const ListOfAllergies = require('./routes/client_profile_route')
 
+// Create Express apps
 const client_app = express();
 const res_app = express();
+
+// Create HTTP servers to wrap Express apps for WebSocket support
+const client_server = http.createServer(client_app);
+const res_server = http.createServer(res_app);
+
+// Create Socket.IO server for the restaurant app
+const io = new Server(res_server, {
+  cors: {
+    origin: "*", // For local development
+    methods: ["GET", "POST"]
+  }
+});
 
 client_app.use(cors());
 res_app.use(cors());
@@ -42,48 +58,41 @@ res_app.use(restaurants_route);
 res_app.use(upload_image_route);
 res_app.use('/public', express.static('public'));
 
-dotenv.config()
+res_app.use(tables_management);
+
+// Make Socket.IO instance available to routes
+res_app.set('socketio', io);
+
+// WebSocket connection handling
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
+dotenv.config();
 
 const client_app_port = process.env.CLIEN_PORT;
 const res_app_port = process.env.RES_PORT;
 
-client_app.listen(client_app_port, () => {
-    console.log('client server is up and running ', client_app_port);
-  });
+// Use HTTP servers instead of Express apps for listening
+client_server.listen(client_app_port, () => {
+    console.log('Client server is up and running', client_app_port);
+});
 
-res_app.listen(res_app_port, () => {
-    console.log('res server is up and running ', res_app_port);
-  });
-
+res_server.listen(res_app_port, () => {
+    console.log('Restaurant server is up and running', res_app_port);
+    console.log('WebSockets enabled on restaurant server');
+});
 
 const dataBaseURL = process.env.DATABASE_URL;
-mongoose.connect(dataBaseURL)
-const db = mongoose.connection
+mongoose.connect(dataBaseURL);
+const db = mongoose.connection;
 
-/*
-email
-"bursov19951@gmail.com"
+db.on('error', error => { console.log(error); });
+db.once('open', () => { console.log('Connected to MongoDB'); });
 
-db.collection("Allergies").insertMany([
-  { name: "Peanuts", description: "Peanut allergy", category: "Nuts" },
-  { name: "Tree Nuts", description: "Tree nuts allergy", category: "Nuts" },
-  { name: "Dairy", description: "Milk and dairy products", category: "Dairy" },
-  { name: "Eggs", description: "Egg allergy", category: "Eggs" },
-  { name: "Soy", description: "Soy allergy", category: "Legumes" },
-  { name: "Wheat", description: "Wheat allergy", category: "Grains" },
-  { name: "Fish", description: "Fish allergy", category: "Seafood" },
-  { name: "Shellfish", description: "Shellfish allergy", category: "Seafood" },
-  { name: "Sesame", description: "Sesame allergy", category: "Seeds" },
-  { name: "Gluten", description: "Gluten intolerance", category: "Grains" },
-  { name: "Lactose", description: "Lactose intolerance", category: "Dairy" },
-  { name: "Mustard", description: "Mustard allergy", category: "Condiments" },
-  { name: "Celery", description: "Celery allergy", category: "Vegetables" },
-  { name: "Sulfites", description: "Sulfites sensitivity", category: "Additives" }
-])
-
-*/
-
-db.on('error', error=>{console.log(error)})
-db.once('open',()=>{console.log('connected to mongo DB')})
-
-module.exports = client_app, res_app;
+// Export both Express apps and Socket.IO instance
+module.exports = { client_app, res_app, io };

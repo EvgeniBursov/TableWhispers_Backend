@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 const {all_Restaurants_Data, Restaurants_Reservation, add_New_Reviews,
-    check_Availability,create_Reservation, get_Available_Times } = require('../restaurant_data/restaurant_data')
+    check_Availability,create_Reservation, get_Available_Times, update_Reservation_Status,
+    update_Reservation_Details,get_Customer_Reservation_History,get_Restaurant_Clients } = require('../restaurant_data/restaurant_data')
 
 
 
@@ -18,8 +19,18 @@ router.get('/check_Availability/reservation/restaurant/:id', check_Availability)
 
 router.get('/get_Available_Times/reservation/restaurant/:id', get_Available_Times);
 
-
 router.post('/create_Reservation/restaurant/:id', create_Reservation);
+
+router.post('/update_Reservation/restaurant/', update_Reservation_Status);
+
+router.post('/update_Reservation_Details/restaurant/', update_Reservation_Details);
+
+router.get('/get_Customer_Reservation_History/restaurant/', get_Customer_Reservation_History);
+
+router.get('/get_Restaurant_Clients/restaurant/:id', get_Restaurant_Clients);
+
+
+
 
 
 

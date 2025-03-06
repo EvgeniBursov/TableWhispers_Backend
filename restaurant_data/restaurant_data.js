@@ -664,6 +664,32 @@ const create_Reservation = async (req, res) => {
       minute: '2-digit'
     });
     
+    const io = req.app.get('socketio');
+
+    // Format the new reservation for the frontend
+    const formattedReservation = {
+      id: savedOrder._id,
+      customer: {
+        firstName: clientName || 'Guest',
+        lastName: '',
+        email: userEmail || '',
+        phone: phone || ''
+      },
+      orderDetails: {
+        guests: guests,
+        status: 'Planning',
+        startTime: reservationDate,
+        endTime: endTime
+      }
+    };
+
+    // Emit the creation event to all connected clients if Socket.IO is available
+    if (io) {
+      io.emit('reservationCreated', {
+        newReservation: formattedReservation
+      });
+      console.log('WebSocket: Emitted reservationCreated event');
+    }
     // Create and send email confirmation
     console.log("Sending confirmation email to:", userEmail);
     const emailMessage = `Hello ${clientName},\nyou ordered in restaurant "${restaurant.res_name}"\nfor ${guests} guests on ${formattedDateStr},\nyour table is from ${formattedStartTime} until ${formattedEndTime}.\nBest luck from Table Whispers`;
@@ -930,6 +956,427 @@ const generateTimeSlots = (openTime, closeTime) => {
 };
 
 
+const update_Reservation_Status = async (req, res) => {
+  console.log("Start Update Reservation Status");
+  const user_id = req.body.user_id;
+  const reservation_id = req.body.reservation_id;
+  const status = req.body.status;
+  
+  try {
+    // Find and update the reservation
+    const reservation = await UserOrder.findOneAndUpdate(
+      { _id: reservation_id }, 
+      { status: status }, 
+      { new: true } // Return updated document
+    ).populate('client_id', 'firstName lastName email phone');
+
+    if (!reservation) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Reservation not found'
+      });
+    }
+
+    // Get the Socket.IO instance if available
+    const io = req.app.get('socketio');
+    
+    // Format the reservation for the frontend
+    const formattedReservation = {
+      id: reservation._id,
+      customer: {
+        firstName: reservation.client_id?.firstName || 'Guest',
+        lastName: reservation.client_id?.lastName || '',
+        email: reservation.client_id?.email || '',
+        phone: reservation.client_id?.phone || ''
+      },
+      orderDetails: {
+        guests: reservation.guests,
+        status: reservation.status,
+        startTime: reservation.start_time,
+        endTime: reservation.end_time
+      }
+    };
+    
+    // Emit the update event to all connected clients if Socket.IO is available
+    if (io) {
+      io.emit('reservationUpdated', {
+        reservationId: reservation_id,
+        newStatus: status,
+        updatedReservation: formattedReservation
+      });
+      console.log('WebSocket: Emitted reservationUpdated event');
+    }
+
+    res.json({
+      success: true,
+      message: "Reservation status updated successfully",
+      reservation: formattedReservation
+    });
+
+  } catch (error) {
+    console.error("Error updating reservation status:", error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update reservation status',
+      message: error.message 
+    });
+  }
+};
+
+
+const update_Reservation_Details = async (req, res) => {
+  console.log("Start Update Reservation Details");
+  
+  // Extract data from request body
+  const reservation_id = req.body.reservation_id;
+  const new_date = req.body.date;
+  const new_time = req.body.time;
+  const new_guests = req.body.guests;
+  const io = req.app.get('io'); // Get Socket.io instance from app
+  
+  try {
+    // Find the reservation by ID
+    const reservation = await UserOrder.findById(reservation_id);
+    
+    if (!reservation) {
+      return res.status(404).json({
+        success: false,
+        error: 'Reservation not found',
+        message: 'The requested reservation does not exist'
+      });
+    }
+    
+    // Track what fields are updated
+    const updatedFields = {};
+    
+    // Check and update each field individually
+    if (new_date && new_time) {
+      // If both date and time are provided, update start_time and end_time
+      // Create date object from the new date and time
+      const [hours, minutes] = new_time.split(':').map(Number);
+      const startDate = new Date(new_date);
+      startDate.setHours(hours, minutes, 0, 0);
+      
+      // Calculate end time (assuming 2 hour duration)
+      const endDate = new Date(startDate);
+      endDate.setHours(endDate.getHours() + 2);
+      
+      // Update the reservation with new times
+      reservation.start_time = startDate;
+      reservation.end_time = endDate;
+      
+      // Update orderDate to now (when the reservation was modified)
+      reservation.orderDate = new Date();
+      
+      updatedFields.start_time = startDate;
+      updatedFields.end_time = endDate;
+      updatedFields.orderDate = reservation.orderDate;
+    } else if (new_date) {
+      // If only date is changing, preserve the original time
+      const originalDate = new Date(reservation.start_time);
+      const originalHours = originalDate.getHours();
+      const originalMinutes = originalDate.getMinutes();
+      
+      // Create a new date with original time
+      const startDate = new Date(new_date);
+      startDate.setHours(originalHours, originalMinutes, 0, 0);
+      
+      // Calculate end time
+      const endDate = new Date(startDate);
+      endDate.setHours(endDate.getHours() + 2);
+      
+      reservation.start_time = startDate;
+      reservation.end_time = endDate;
+      
+      // Update orderDate to now (when the reservation was modified)
+      reservation.orderDate = new Date();
+      
+      updatedFields.start_time = startDate;
+      updatedFields.end_time = endDate;
+      updatedFields.orderDate = reservation.orderDate;
+    } else if (new_time) {
+      // If only time is changing, preserve the original date
+      const originalDate = new Date(reservation.start_time);
+      const [hours, minutes] = new_time.split(':').map(Number);
+      
+      // Set new time on original date
+      originalDate.setHours(hours, minutes, 0, 0);
+      
+      // Calculate end time
+      const endDate = new Date(originalDate);
+      endDate.setHours(endDate.getHours() + 2);
+      
+      reservation.start_time = originalDate;
+      reservation.end_time = endDate;
+      
+      // Update orderDate to now (when the reservation was modified)
+      reservation.orderDate = new Date();
+      
+      updatedFields.start_time = originalDate;
+      updatedFields.end_time = endDate;
+      updatedFields.orderDate = reservation.orderDate;
+    }
+    
+    // Update number of guests if provided
+    if (new_guests && !isNaN(parseInt(new_guests))) {
+      const guests = parseInt(new_guests);
+      reservation.guests = guests;
+      updatedFields.guests = guests;
+      
+      // If only guests changed, also update the orderDate
+      if (!new_date && !new_time) {
+        reservation.orderDate = new Date();
+        updatedFields.orderDate = reservation.orderDate;
+      }
+    }
+    
+    // Save the updated reservation
+    await reservation.save();
+    
+    // Emit real-time update via Socket.io
+    if (io) {
+      io.emit('reservationUpdated', {
+        reservationId: reservation_id,
+        updatedFields: {
+          startTime: reservation.start_time,
+          endTime: reservation.end_time,
+          guests: reservation.guests,
+          orderDate: reservation.orderDate
+        }
+      });
+      console.log('Emitted real-time update for reservation', reservation_id);
+    }
+    
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: 'Reservation details updated successfully',
+      reservation: {
+        id: reservation._id,
+        start_time: reservation.start_time,
+        end_time: reservation.end_time,
+        guests: reservation.guests,
+        orderDate: reservation.orderDate
+      }
+    });
+    
+    console.log("End Update Reservation Details");
+    
+  } catch (error) {
+    console.error("Error updating reservation details:", error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update reservation details',
+      message: error.message
+    });
+  }
+};
+
+
+const get_Customer_Reservation_History = async (req, res) => {
+  console.log("Start GET Reservation History");
+  const { customer_id, email } = req.query;
+  
+  try {
+    let clientData;
+    
+    if (customer_id) {
+      clientData = await ClientUser.findById(customer_id);
+    } 
+    else if (email) {
+      clientData = await ClientUser.findOne({ email });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing customer_id or email'
+      });
+    }
+    
+    if (!clientData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+    
+    const customerOrders = await UserOrder.find({ client_id: clientData._id })
+      .populate('restaurant', 'res_name phone_number city')
+      .sort({ start_time: -1 });
+    
+    if (!customerOrders || customerOrders.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No reservations found for this customer',
+        reservations: []
+      });
+    }
+    
+    const reservations = customerOrders.map(order => ({
+      id: order._id,
+      customerName: `${clientData.first_name} ${clientData.last_name}`,
+      customerEmail: clientData.email,
+      customerPhone: clientData.phone_number,
+      restaurantName: order.restaurant ? order.restaurant.res_name : 'Unknown',
+      restaurantCity: order.restaurant ? order.restaurant.city : '',
+      restaurantPhone: order.restaurant ? order.restaurant.phone_number : '',
+      date: order.start_time,
+      time: order.start_time,
+      endTime: order.end_time,
+      guests: order.guests,
+      status: order.status,
+      orderDate: order.orderDate
+    }));
+    
+    res.status(200).json({
+      success: true,
+      customer: {
+        first_name: clientData.first_name,
+        last_name: clientData.last_name,
+        email: clientData.email,
+        phone: clientData.phone_number
+      },
+      reservations
+    });
+    console.log("End GET Reservation History");
+  } catch (error) {
+    console.error('Error fetching reservation history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching reservation history',
+      error: error.message
+    });
+  }
+};
+
+const get_Restaurant_Clients = async (req, res) => {
+  console.log("Start GET Clients Data");
+  try {
+    const restaurant_id = req.params.id;
+    if (!restaurant_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Restaurant ID is required'
+      });
+    }
+    
+    // Step 1: Get all orders for this restaurant
+    const all_orders = await UserOrder.find({ restaurant: restaurant_id });
+    
+    if (!all_orders || all_orders.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No customers found for this restaurant',
+        customers: []
+      });
+    }
+
+    // Step 2: Extract all client IDs from orders
+    const allClientIds = all_orders.map(order => order.client_id ? order.client_id.toString() : null)
+                                 .filter(id => id !== null);
+    
+    console.log(`Found ${allClientIds.length} client IDs from orders`);
+    
+    // Step 3: Find all registered clients
+    const registered_Clients = await ClientUser.find({
+      _id: { $in: allClientIds }
+    }).populate('allergies', 'name severity');
+    
+    // Step 4: Create a set of registered client IDs for quick lookup
+    const registeredClientIdSet = new Set(
+      registered_Clients.map(client => client._id.toString())
+    );
+    
+    // Step 5: Find all client IDs that are not registered clients
+    const guestClientIds = allClientIds.filter(id => !registeredClientIdSet.has(id));
+    
+    console.log(`Found ${registered_Clients.length} registered clients and ${guestClientIds.length} guest client IDs`);
+    
+    // Step 6: Find guest clients directly by ID
+    const guest_Clients = await ClientGuest.find({
+      _id: { $in: guestClientIds }
+    });
+    
+    console.log(`Found ${guest_Clients.length} guest clients in the database by ID`);
+    
+    // Step 7: Process registered clients
+    const formattedRegisteredClients = registered_Clients.map(client => {
+      const clientOrders = all_orders.filter(order => 
+        order.client_id && order.client_id.toString() === client._id.toString()
+      );
+      
+      return {
+        id: client._id,
+        type: 'registered',
+        first_name: client.first_name,
+        last_name: client.last_name,
+        email: client.email,
+        phone: client.phone_number,
+        age: client.age,
+        allergies: client.allergies || [],
+        visits: clientOrders.length,
+        last_visit: findLastVisit(clientOrders)
+      };
+    });
+    
+    // Step 8: Process guest clients
+    const formattedGuestClients = guest_Clients.map(client => {
+      const clientOrders = all_orders.filter(order => 
+        order.client_id && order.client_id.toString() === client._id.toString()
+      );
+      
+      return {
+        id: client._id,
+        type: 'guest',
+        first_name: client.first_name,
+        last_name: client.last_name,
+        email: client.email,
+        phone: client.phone_number,
+        visits: clientOrders.length,
+        last_visit: findLastVisit(clientOrders)
+      };
+    });
+    
+    // Step 9: Combine and sort all customers
+    const allCustomers = [...formattedRegisteredClients, ...formattedGuestClients]
+      .sort((a, b) => {
+        if (!a.last_visit) return 1;
+        if (!b.last_visit) return -1;
+        return new Date(b.last_visit) - new Date(a.last_visit);
+      });
+    
+    console.log("End GET Clients Data");
+    res.status(200).json({
+      success: true,
+      total: allCustomers.length,
+      registered: formattedRegisteredClients.length,
+      guests: formattedGuestClients.length,
+      customers: allCustomers
+    });
+  } catch (error) {
+    console.error('Error fetching restaurant customers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch restaurant customers',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to find the last visit date from a list of orders
+const findLastVisit = (orders) => {
+  if (!orders || orders.length === 0) return null;
+  
+  // Sort orders by start_time descending
+  const sortedOrders = [...orders].sort((a, b) => {
+    if (!a.start_time) return 1;
+    if (!b.start_time) return -1;
+    return new Date(b.start_time) - new Date(a.start_time);
+  });
+  
+  return sortedOrders[0].start_time || sortedOrders[0].orderDate;
+};
+
+
 
 
 // Helper function to calculate new average rating
@@ -996,6 +1443,10 @@ module.exports = {
   add_New_Reviews,
   check_Availability,
   get_Available_Times,
-  create_Reservation
+  create_Reservation,
+  update_Reservation_Status,
+  update_Reservation_Details,
+  get_Customer_Reservation_History,
+  get_Restaurant_Clients
 };
   
