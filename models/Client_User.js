@@ -41,11 +41,10 @@ const ClientUserSchema = new mongoose.Schema({
     ref: 'UserOrder', // Reference the UserOrder model
   }],
   totpSecret: String,
+  profileImage: {
+    type: String,
+  }
 
 }, { timestamps: true });
-
-//add photo... 
-//כ, תמונת פרופיל, מספר טלפון הזמנות עתידיות, הזמנות קודמות
-
 module.exports = mongoose.model('ClientUser', ClientUserSchema);
 

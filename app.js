@@ -3,8 +3,9 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const http = require('http'); // Added for WebSockets
-const { Server } = require('socket.io'); // Added for WebSockets
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path'); // Add path module
 
 const client_register_route = require('./routes/client_register_route');
 const client_login_route = require('./routes/client_login_route');
@@ -22,7 +23,6 @@ const client_profile = require('./routes/client_profile_route');
 const upload_image_route = require('./upload_image/upload_image_service');
 
 const tables_management = require('./routes/tables_route');
-//const ListOfAllergies = require('./routes/client_profile_route')
 
 // Create Express apps
 const client_app = express();
@@ -47,18 +47,39 @@ client_app.use(bodyParser.json());
 client_app.use(client_register_route);
 client_app.use(client_login_route);
 client_app.use(send_totp_code_to_client,verify_totp_code,reset_user_password);
-//client_app.use(client_profile,ListOfAllergies);
 client_app.use(client_profile);
-client_app.use('/public', express.static('public'));
+
+// FIXED: Add upload_image_route to client_app as well
+client_app.use(upload_image_route);
+
+// FIXED: Serve static files correctly
+// Use absolute path instead of relative path
+client_app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// Make sure the profile_images directory exists
+const fs = require('fs');
+const profileImagesDir = path.join(__dirname, 'public/profile_images');
+if (!fs.existsSync(profileImagesDir)) {
+  fs.mkdirSync(profileImagesDir, { recursive: true });
+}
 
 res_app.use(bodyParser.json());
 res_app.use(res_register_route);
 res_app.use(res_login_route);
 res_app.use(restaurants_route);
 res_app.use(upload_image_route);
-res_app.use('/public', express.static('public'));
-
+res_app.use('/public', express.static(path.join(__dirname, 'public')));
 res_app.use(tables_management);
+
+// Debug route to check if images are accessible
+client_app.get('/test-image-path', (req, res) => {
+  res.json({
+    message: 'Image paths debugging',
+    publicPath: path.join(__dirname, 'public'),
+    profileImagesPath: profileImagesDir,
+    exists: fs.existsSync(profileImagesDir)
+  });
+});
 
 // Make Socket.IO instance available to routes
 res_app.set('socketio', io);

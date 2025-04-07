@@ -38,6 +38,9 @@ const RestaruntSchema = new mongoose.Schema({
     rating:{
       type: Number
     },
+    number_of_rating:{
+      type: Number
+    },
     menu: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'MenuCollection'

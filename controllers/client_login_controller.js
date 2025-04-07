@@ -17,14 +17,14 @@ const LoginUser = async (req, res) => {
         }
         const match_pass = await bcrypt.compare(req_pass, logUser.password)
         if(!match_pass) {
-          return res.status(300).json({ 'alert': "incorrect password"})
+          return res.status(300).json({ 'error': "incorrect password"})
         }else{
           const token = createToken(logUser._id,logUser.email)
           return res.status(200).send({"user":logUser,"token":token});
         }
       } catch (err) {
         console.error(err);
-        return res.status(500).json({ 'alert': 'Fail checking user' });
+        return res.status(500).json({ 'error': 'Fail checking user' });
       }
 }
 

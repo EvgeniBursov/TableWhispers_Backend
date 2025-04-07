@@ -13,6 +13,11 @@ const userOderSchema = new mongoose.Schema({
     ref: 'ClientUser', 
     required: true
   },
+  client_type: {
+    type: String,
+    enum: ['ClientUser', 'ClientGuest'],
+    required: true
+  },
   guests:{
     type: Number,
     required: true
@@ -32,8 +37,18 @@ const userOderSchema = new mongoose.Schema({
   end_time: {
     type: Date,
   },
+  table_Id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Table'
+  },
+  tableNumber: {
+    type: String
+  }
 });
 
 module.exports = mongoose.model('UserOrder', userOderSchema);
+userOderSchema.index({ table_Id: 1, status: 1 });
+userOderSchema.index({ tableNumber: 1, status: 1 });
+userOderSchema.index({ restaurant: 1, start_time: 1, end_time: 1, status: 1 });
 
 

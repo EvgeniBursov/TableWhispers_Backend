@@ -1,6 +1,12 @@
 const ClientUser = require('../models/Client_User')
 const allergies = require('../models/Allergies')
 
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const profileImagesDir = path.join(__dirname, '../public/profile_images/');
+
 const userData = async (req, res) => {
   const req_email = req.query.email;
   try {
@@ -32,8 +38,6 @@ const userData = async (req, res) => {
     ):ordersWithRestaurantDetails
     console.log(ordersWithRestaurantDetails)
     
-
-      
     res.status(200).json({
       first_name: clientData.first_name,
       last_name: clientData.last_name,
@@ -41,7 +45,8 @@ const userData = async (req, res) => {
       email: clientData.email,
       phone_number: clientData.phone_number,
       allergies: clientData.allergies.map(a => a.name),
-      orders: ordersWithRestaurantDetails, // הוסף את ההזמנות עם פרטי המסעדה
+      orders: ordersWithRestaurantDetails,
+      profileImage: clientData.profileImage
     });
   } catch (error) {
     console.log(error);
@@ -49,6 +54,118 @@ const userData = async (req, res) => {
   }
 };
 
+if (!fs.existsSync(profileImagesDir)) {
+  fs.mkdirSync(profileImagesDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, profileImagesDir);
+  },
+  filename: function (req, file, cb) {
+    // Create unique filename with timestamp
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    cb(null, 'profile-' + uniqueSuffix + extension);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files are allowed'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 2 * 1024 * 1024 // 2 megabytes
+  },
+  fileFilter: fileFilter
+});
+
+// Function to handle profile image updates
+const updateUserProfileImage = async (req, res) => {
+  try {
+    const userEmail = req.body.email;
+    
+    // Find user in database
+    const client_user = await ClientUser.findOne({ 'email': userEmail });
+    if (!client_user) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({ error: 'User not found' });
+    }
+    
+    // Get path to the newly uploaded file
+    const profileImagePath = '/public/profile_images/' + req.file.filename;
+    
+    // Delete previous image if it exists and isn't a default image
+    if (client_user.profileImage && !client_user.profileImage.includes('default')) {
+      const oldImagePath = path.join(__dirname, '../public', client_user.profileImage);
+      if (fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+      }
+    }
+    
+    // Update image path in database
+    client_user.profileImage = profileImagePath;
+    
+    // Ensure valid user_type to prevent validation error
+    if (!client_user.user_type) {
+      client_user.user_type = 'client';
+    }
+    
+    await client_user.save();
+    
+    return res.status(200).json({
+      message: 'Profile image updated successfully',
+      profileImage: profileImagePath
+    });
+    
+  } catch (error) {
+    console.error('Error updating profile image:', error);
+    
+    // Delete uploaded file in case of error
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    return res.status(500).json({
+      error: 'Failed to update profile image',
+      details: error.message
+    });
+  }
+};
+
+// Middleware for single image upload
+const uploadSingleImage = upload.single('profileImage');
+
+// Create endpoint handler
+const updateProfileImageHandler = (req, res) => {
+  uploadSingleImage(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({
+        error: `Upload error: ${err.message}`
+      });
+    } else if (err) {
+      return res.status(400).json({
+        error: `File upload failed: ${err.message}`
+      });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({
+        error: 'No image file uploaded'
+      });
+    }
+    
+    updateUserProfileImage(req, res);
+  });
+};
 /*
 const userData = async (req,res) =>{
   const req_email = req.query.email;
@@ -172,13 +289,16 @@ const getListOfAllergies = async (req,res) =>{
 
 
 const updateUserPhoneNumber = async (req, res) => {
-    var req_email = req.body.email;
-    var req_number = req.body.phone_number;
+    const req_email = req.body.email;
+    const req_number = req.body.phone_number;
     const phoneRegex = /^05\d{8}$/; // 10 digits, starting with 05
     try {
-        const user = await ClientUser.findOne({ 'email': req_email })
-        if (user != null) {
-            return res.status(400).json({ error: 'the user is exist' });
+        const client_user = await ClientUser.findOne({ 'email': req_email })
+        if (!client_user) {
+            return res.status(400).json({ error: 'the user is not exist' });
+        }
+        if (!client_user.user_type) {
+          client_user.user_type = 'Client';
         }
         if (!phoneRegex.test(req_number)) {
             return res.status(300).json({
@@ -186,14 +306,17 @@ const updateUserPhoneNumber = async (req, res) => {
                     "Phone number must be 10 digits and start with 05."
             });
         }
-        user.phone_number = req_number;
-        await user.save();
-        console.log('phone_number changed successfully:', user.allergies);
+        client_user.phone_number = req_number;
+        await client_user.save();
+        return res.status(200).json({ message: 'phone_number changed successfully' });
     } catch (err) {
-        console.error('Error phone_number not changed ');
-        return (res, err)
+        //return res.status(404).json({ error: 'Error phone number not changed' });
+        console.error('Error updating phone number:', err);
+        return res.status(500).json({ 
+            error: 'Server error while updating phone number',
+            details: err.message 
+        });
     }
-
 }
 
 //const createNewOrder = async (req, res) => 
@@ -204,5 +327,7 @@ const updateUserPhoneNumber = async (req, res) => {
         userData,
         deleteClientProfile,
         getListOfAllergies,
-        updateUserAlergic
+        updateUserAlergic,
+        updateUserPhoneNumber,
+        updateProfileImageHandler
     }

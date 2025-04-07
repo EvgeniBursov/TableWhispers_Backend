@@ -5,7 +5,7 @@ const { createToken } = require('./auth');
 
 const createNewUser = async (req, res) => {
   //need add checking correct pass number age ...
-  console.log("front", req)
+  console.log("Start Create New User")
   var req_email = req.body.email;
   var req_first_name = req.body.first_name;
   var req_last_name = req.body.last_name;
@@ -13,16 +13,28 @@ const createNewUser = async (req, res) => {
   var req_phone_number = req.body.phone_number;
   var req_pass = req.body.password;
   var req_confirm_pass = req.body.confirm_password;
-  //const check = validatRegister(req_email, req_first_name, req_last_name, req_age, req_phone_number, req_pass, req_confirm_pass)
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+ // const check = validatRegister(req_email, req_first_name, req_last_name, req_age, req_phone_number, req_pass, req_confirm_pass)
   
-  /*if (check.errors !== null) {
-    return res.status(400).json({
-      success: false,
-      errors: check.errors,
-      message: check.message,
-    });
-  }*/
-
+  if (req_first_name.length < 2 || req_last_name.length < 2) {
+    return res.status(400).json({ 'error': 'the first name or last name cant be smaller of 2' })
+  }
+  if (req_age < 16) {
+    return res.status(400).json({ 'error': 'the minum age for using platform is 16' })
+  }
+  if (req_phone_number.length !== 10 ) {
+    return res.status(400).json({ 'error': 'the number need be 10 digits' })
+  }
+  if (!passwordRegex.test(req_pass)) {
+    return res.status(400).json({ 'error':
+      "Password must contain at least 1 uppercase letter, 1 lowercase letter, 1 special character, 1 number, and be at least 6 characters long."
+    })
+  }
+  if (!passwordRegex.test(req_confirm_pass)) {
+    return res.status(400).json({ 'error':
+      "Password must contain at least 1 uppercase letter, 1 lowercase letter, 1 special character, 1 number, and be at least 6 characters long."
+    })
+  }
   if (req_confirm_pass !== req_pass) {
     return res.status(400).json({ 'error': 'the passwords is not same' })
   }

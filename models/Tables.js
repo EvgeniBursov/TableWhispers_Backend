@@ -14,49 +14,79 @@ const TableSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  status: {
+  shape: {
     type: String,
-    enum: ['Available', 'Reserved', 'Occupied', 'Maintenance'],
-    default: 'Available'
-  },
-  /*shape: {
-    type: String,
-    enum: ['round', 'rectangle'],
+    enum: ['round', 'rectangle', 'square'],
     required: true
   },
   size: {
-    type: Number, // לשולחנות עגולים
+    type: Number, 
   },
   width: {
-    type: Number, // לשולחנות מלבניים
+    type: Number, 
   },
   height: {
-    type: Number, // לשולחנות מלבניים
+    type: Number,
   },
-  coordinates: {
-    x: {
-      type: Number,
-      required: true
-    },
-    y: {
-      type: Number,
-      required: true
-    }
+  x_position: {
+    type: Number,
+    required: true,
+    default: 0
   },
-  location: {
-    type: String,
-    enum: ['Indoor', 'Outdoor', 'Bar'],
-    required: true
-  },
-  section: {
-    type: String,
-    default: 'Main'
+  y_position: {
+    type: Number,
+    required: true,
+    default: 0
   },
   status: {
     type: String,
-    enum: ['Active', 'Inactive', 'Maintenance'],
-    default: 'Active'
-  }*/
-});
+    enum: ['available', 'reserved', 'occupied', 'maintenance', 'inactive'],
+    default: 'available'
+  },
+  section: {
+    type: String,
+    default: 'main'
+  },
+  current_reservation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserOrder',
+    default: null
+  },
+  reservations: [{
+    reservation_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'UserOrder'
+    },
+    client_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'client_type'
+    },
+    client_type: {
+      type: String,
+      enum: ['ClientUser', 'ClientGuest'],
+      required: true
+    },
+    start_time: {
+      type: Date,
+      required: true
+    },
+    end_time: {
+      type: Date,
+      required: true
+    },
+    guests_count: {
+      type: Number,
+      required: true
+    },
+    status: {
+      type: String,
+      enum: ['planning', 'confirmed', 'seated', 'done', 'cancelled'],
+      default: 'planning'
+    },
+    notes: String
+  }]
+}, { timestamps: true });
+
 TableSchema.index({ restaurant_id: 1, table_number: 1 }, { unique: true });
+
 module.exports = mongoose.model('Table', TableSchema);
