@@ -38,7 +38,7 @@ const TableSchema = new mongoose.Schema({
     required: true,
     default: 0
   },
-  status: {
+  table_status: {
     type: String,
     enum: ['available', 'reserved', 'occupied', 'maintenance', 'inactive'],
     default: 'available'
@@ -78,7 +78,7 @@ const TableSchema = new mongoose.Schema({
       type: Number,
       required: true
     },
-    status: {
+    client_status: {
       type: String,
       enum: ['planning', 'confirmed', 'seated', 'done', 'cancelled'],
       default: 'planning'

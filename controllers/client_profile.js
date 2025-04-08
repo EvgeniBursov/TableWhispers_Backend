@@ -1,9 +1,12 @@
 const ClientUser = require('../models/Client_User')
 const allergies = require('../models/Allergies')
+const UserOrder = require('../models/User_Order')
 
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+
+const { io } = require('../app')
 
 const profileImagesDir = path.join(__dirname, '../public/profile_images/');
 
@@ -14,7 +17,7 @@ const userData = async (req, res) => {
       .populate('allergies', 'name')
       .populate({
         path: 'orders',
-        select: 'restaurant guests status orderDate',
+        select: 'id restaurant guests status orderDate start_time end_time',
         populate: {
           path: 'restaurant',
           select: 'res_name phone_number city description'
@@ -22,21 +25,38 @@ const userData = async (req, res) => {
       });
 
     if (!clientData) {
-      console.log("In IF User Data");
       return res.status(404).json({ error: 'User not found' });
     }
+    
     const ordersWithRestaurantDetails = Array.isArray(clientData.orders)
-      ? clientData.orders.map(order => ({
-          restaurantName: order.restaurant.res_name,
-          restaurantPhone: order.restaurant.phone_number,
-          restaurantCity: order.restaurant.city,
-          restaurantDescription: order.restaurant.description,
-          guests: order.guests,
-          status: order.status,
-          orderDate: order.orderDate,
+      ? clientData.orders.map(order => {
+          // Format the start_time and end_time to only show hours and minutes
+          const formatTime = (timeString) => {
+            if (!timeString) return null;
+            const date = new Date(timeString);
+            return date.toLocaleTimeString('he-IL', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: false // Use 24-hour format
+            });
+          };
+
+          return {
+            order_id: order._id,
+            restaurantName: order.restaurant.res_name,
+            restaurantPhone: order.restaurant.phone_number,
+            restaurantCity: order.restaurant.city,
+            restaurantDescription: order.restaurant.description,
+            guests: order.guests,
+            status: order.status,
+            orderDate: order.orderDate,
+            orderStart: formatTime(order.start_time),
+            orderEnd: formatTime(order.end_time)
+          };
       })
-    ):ordersWithRestaurantDetails
-    console.log(ordersWithRestaurantDetails)
+      : [];  // Fixed this line to return empty array if no orders
+    
+    console.log(ordersWithRestaurantDetails);
     
     res.status(200).json({
       first_name: clientData.first_name,
@@ -166,43 +186,6 @@ const updateProfileImageHandler = (req, res) => {
     updateUserProfileImage(req, res);
   });
 };
-/*
-const userData = async (req,res) =>{
-  const req_email = req.query.email;
-  try {
-      const clientData = await ClientUser.findOne({ email: "bursov19951@gmail.com" })
-      .populate('allergies', 'name')
-      .populate({
-        path: 'orders',
-        select: 'restaurant guests status orderDate', // בחר את השדות שאתה רוצה להחזיר מההזמנות
-        populate: {
-          path: 'restaurant',
-          select: 'res_name phone_number city description' // שליפה של פרטי המסעדה
-        }
-      });
-      console.log(clientData.orders)
-    console.log("In User Data");
-    if (!clientData) {
-      console.log("In IF User Data");
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.status(200).json({
-      first_name: clientData.first_name,
-      last_name: clientData.last_name,
-      age: clientData.age,
-      email: clientData.email,
-      phone_number: clientData.phone_number,
-      allergies: clientData.allergies.map(a => a.name),
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-};
-*/
-
-
-
 
 const deleteClientProfile = async (req, res) => {
     const { email: req_email } = req.body;
@@ -232,8 +215,6 @@ const deleteClientProfile = async (req, res) => {
     }
   };
   
-
-
   const updateUserAlergic = async (req, res) => {
     const { email, name_allergies, type } = req.body;
     console.log(email, name_allergies, type)
@@ -270,7 +251,6 @@ const deleteClientProfile = async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
  }
-
 
 const getListOfAllergies = async (req,res) =>{
   try {
@@ -319,9 +299,68 @@ const updateUserPhoneNumber = async (req, res) => {
     }
 }
 
-//const createNewOrder = async (req, res) => 
+const cancelUpcomingOrders = async (req, res) => {
+  console.log("Start cancel Upcoming Orders")
+  const order_id = req.body.orderId;
+  
+  // Validate order ID
+  if (!order_id) {
+    return res.status(400).json({ error: 'Order ID is required' });
+  }
+  
+  try {
+    // Find the order by ID and populate restaurant and user details
+    const order = await UserOrder.findById(order_id).populate('restaurant');
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Update status to "Cancelled"
+    order.status = 'Cancelled';
+    await order.save();
+    
+    // Get the Socket.IO instance from the app
+    const io = req.app.get('socketio');
+    
+    if (io) {
+      // Create client name from available information
+      const clientName = order.user ? 
+        `${order.user.first_name} ${order.user.last_name}` : 
+        (order.client_name || 'Customer');
+      
+      // Emit cancellation event to restaurant's room
+      io.to(`restaurant_${order.restaurant._id}`).emit('orderCancelled', {
+        orderId: order._id,
+        clientName: clientName,
+        clientEmail: order.user ? order.user.email : null,
+        reservationDate: order.orderDate,
+        startTime: order.start_time,
+        endTime: order.end_time,
+        guests: order.guests,
+        reason: 'Cancelled by client',
+        cancelledAt: new Date()
+      });
+      
+      console.log(`Emitted orderCancelled event to restaurant_${order.restaurant._id}`);
+    } else {
+      console.warn('Socket.IO instance not available');
+    }
+    
+    return res.status(200).json({ 
+      message: 'Order cancelled successfully',
+      orderId: order._id
+    });
+    
+  } catch (error) {
+    console.error('Error cancelling order:', error);
+    return res.status(500).json({ 
+      error: 'Failed to cancel order',
+      details: error.message 
+    });
+  }
+};
 
-//const updateUserOrderList = async (req, res) =>
+
 
     module.exports = {
         userData,
@@ -329,5 +368,6 @@ const updateUserPhoneNumber = async (req, res) => {
         getListOfAllergies,
         updateUserAlergic,
         updateUserPhoneNumber,
-        updateProfileImageHandler
+        updateProfileImageHandler,
+        cancelUpcomingOrders
     }

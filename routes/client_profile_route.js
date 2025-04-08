@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { userData, deleteClientProfile, getListOfAllergies, updateUserAlergic,updateUserPhoneNumber,updateProfileImageHandler } = require('../controllers/client_profile')
+const { userData, deleteClientProfile, getListOfAllergies, updateUserAlergic,updateUserPhoneNumber,updateProfileImageHandler,cancelUpcomingOrders } = require('../controllers/client_profile')
 const { changeClientPassword } = require('../controllers/auth')
 
 
@@ -19,6 +19,8 @@ router.post('/updateUserPhoneNumber',updateUserPhoneNumber);
 router.post('/updateUserProfileImage', updateProfileImageHandler);
 
 router.delete('/deleteClientProfile',deleteClientProfile);
+
+router.post('/cancelUpcomingOrders', cancelUpcomingOrders);
 
 
 
