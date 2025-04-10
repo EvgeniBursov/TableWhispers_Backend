@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const restaurants = require('../models/Restarunt')
 const UserOrder = require('../models/User_Order');
 const ClientUser = require('../models/Client_User');
@@ -5,8 +6,10 @@ const ClientGuest = require('../models/ClientGuest');
 const Allergies = require('../models/Allergies');
 const Table = require('../models/Tables')
 const Review = require('../models/Reviews');
+const RestaurantsBills = require('../models/Restaurants_Bills')
 
-const {sendMail} = require('../MessageSystem/email_message')
+const {sendMail} = require('../MessageSystem/email_message');
+
 
 
 const all_Restaurants_Data = async (req, res) => {
@@ -646,7 +649,7 @@ const findBestTable = async (restaurantId, reservationDate, endTime, guests) => 
     const reservedTableNumbers = new Set();
     
     existingReservations.forEach(res => {
-      if (res.table_Id) { // Changed from tableId to table_Id
+      if (res.table_Id) {
         reservedTableIds.add(res.table_Id.toString());
       }
       if (res.tableNumber) {
@@ -666,30 +669,13 @@ const findBestTable = async (restaurantId, reservationDate, endTime, guests) => 
         return false;
       }
       
-      // Additional check: check table reservations array if it exists
-      if (table.reservations && table.reservations.length > 0) {
-        const isTableReservedForThisTime = table.reservations.some(res => {
-          if (res.status === 'cancelled') return false;
-          
-          const resStart = new Date(res.start_time);
-          const resEnd = new Date(res.end_time);
-          
-          // Check if this reservation overlaps with the requested time
-          return resStart < endTime && resEnd > reservationDate;
-        });
-        
-        if (isTableReservedForThisTime) {
-          return false;
-        }
-      }
-      
       // Skip if too small
       if (table.seats < guests) {
         return false;
       }
       
       // Skip if not available
-      if (table.status !== 'available') {
+      if (table.table_status !== 'available') {
         return false;
       }
       
@@ -917,7 +903,7 @@ const create_Reservation = async (req, res) => {
       status: 'Planning',
       start_time: reservationDate,
       end_time: endTime,
-      tableId: selectedTable._id,
+      table_Id: selectedTable._id,
       tableNumber: selectedTable.table_number
     });
 
@@ -938,22 +924,11 @@ const create_Reservation = async (req, res) => {
       );
     }
     
-    // Add reservation to table's reservation list
+    // Update table status
     await Table.findByIdAndUpdate(
       selectedTable._id,
       { 
-        $push: { 
-          reservations: {
-            reservation_id: savedOrder._id,
-            client_id: userId,
-            client_type: clientType,
-            start_time: reservationDate,
-            end_time: endTime,
-            guests_count: guests,
-            status: 'planning'
-          } 
-        },
-        status: 'reserved'
+        table_status: 'reserved'
       }
     );
     
@@ -1038,7 +1013,6 @@ const checkTableAvailability = async (tableId, startTime, endTime) => {
   try {
     // Find reservations that overlap with this time period using consistent formula
     const overlappingReservations = await UserOrder.find({
-      // Fix: Use the correct field name as defined in your schema
       table_Id: tableId, 
       status: { $nin: ['Cancelled'] },
       // Simplified overlap check (one condition catches all overlap scenarios)
@@ -1073,6 +1047,7 @@ const checkTableAvailability = async (tableId, startTime, endTime) => {
     return false;
   }
 };
+
 
 /**
  * Calculates reservation date based on day of week and time
@@ -1454,134 +1429,69 @@ const update_Reservation_Status = async (req, res) => {
       console.log('WebSocket: Emitted reservation status change events');
     }
 
-    // Also update the tables with this reservation if applicable
-    if (reservation.tableNumber) {
-      // Find the table by table number
-      const table = await Table.findOne({ 
-        table_number: reservation.tableNumber,
-        restaurant_id: restaurantId
-      });
+    // Also update the table if applicable
+    if (reservation.tableNumber || reservation.table_Id) {
+      // Find the table by ID or table number
+      const table = reservation.table_Id ?
+        await Table.findById(reservation.table_Id) :
+        await Table.findOne({ 
+          table_number: reservation.tableNumber,
+          restaurant_id: restaurantId
+        });
       
       if (table) {
         console.log(`Found table ${table.table_number} for reservation update`);
         
-        // Find the reservation in the table's array and update its status
-        const tableReservationIndex = table.reservations.findIndex(
-          res => res.reservation_id && res.reservation_id.toString() === reservation_id.toString()
-        );
-        
-        if (tableReservationIndex !== -1) {
-          console.log(`Updating table reservation at index ${tableReservationIndex}`);
-          
-          // Map status from UserOrder to Table reservation status
-          const mappedStatus = mapOrderStatusToReservationStatus(status);
-          
-          // Update client_status (the correct field in the schema)
-          table.reservations[tableReservationIndex].client_status = mappedStatus;
-          
-          // Update table_status based on reservation status
-          if (status === 'Seated') {
-            table.table_status = 'occupied';
-            table.current_reservation = reservation_id;
-          } else if (status === 'Planning' || status === 'Confirmed') {
-            table.table_status = 'reserved';
-          } else if (status === 'Cancelled' || status === 'Done') {
-            // Check if this was the current reservation
-            if (table.current_reservation && 
-                table.current_reservation.toString() === reservation_id.toString()) {
-              table.current_reservation = null;
-              
-              // Check if there are other active reservations
-              const hasActiveReservations = table.reservations.some(res => 
-                res.reservation_id.toString() !== reservation_id.toString() &&
-                res.client_status !== 'cancelled' && 
-                res.client_status !== 'done'
-              );
-              
-              // If no other active reservations, mark table as available
-              if (!hasActiveReservations) {
-                table.table_status = 'available';
-              }
+        // Update table_status based on reservation status
+        if (status === 'Seated') {
+          table.table_status = 'occupied';
+          table.current_reservation = reservation_id;
+        } else if (status === 'Planning' || status === 'Confirmed') {
+          table.table_status = 'reserved';
+        } else if (status === 'Cancelled' || status === 'Done') {
+          // Check if this was the current reservation
+          if (table.current_reservation && 
+              table.current_reservation.toString() === reservation_id.toString()) {
+            table.current_reservation = null;
+            
+            // Check if there are other active reservations
+            const hasActiveReservations = await UserOrder.findOne({
+              table_Id: table._id,
+              status: { $nin: ['Cancelled', 'Done'] },
+              start_time: { $lt: new Date(new Date().getTime() + 24*60*60*1000) }, // within next 24 hours
+              end_time: { $gt: new Date() } // not ended yet
+            });
+            
+            // If no other active reservations, mark table as available
+            if (!hasActiveReservations) {
+              table.table_status = 'available';
             }
           }
-          
-          await table.save();
-          console.log(`Table ${table.table_number} updated with new reservation status: ${mappedStatus}`);
-          
-          // Emit table update
-          if (io && restaurantId) {
-            io.to(`restaurant_${restaurantId}`).emit('tableReservationUpdated', {
-              tableId: table._id,
-              tableNumber: table.table_number,
-              reservationId: reservation_id,
-              status: status,
-              tableStatus: table.table_status
-            });
-            
-            // Also emit a floor layout update
-            io.to(`restaurant_${restaurantId}`).emit('floorLayoutUpdated', {
-              restaurantId: restaurantId,
-              timestamp: new Date(),
-              action: 'refresh'
-            });
-          }
-        } else {
-          console.log(`Reservation ${reservation_id} not found in table's reservations array. Adding it now.`);
-          
-          // If the reservation wasn't found in the table's array, add it
-          const mappedStatus = mapOrderStatusToReservationStatus(status);
-          
-          // Add the reservation to the table
-          table.reservations.push({
-            reservation_id: reservation_id,
-            client_id: reservation.client_id,
-            client_type: reservation.client_type,
-            start_time: reservation.start_time,
-            end_time: reservation.end_time,
-            guests_count: reservation.guests,
-            client_status: mappedStatus
+        }
+        
+        await table.save();
+        console.log(`Table ${table.table_number} updated with new status: ${table.table_status}`);
+        
+        // Emit table update
+        if (io && restaurantId) {
+          io.to(`restaurant_${restaurantId}`).emit('tableReservationUpdated', {
+            tableId: table._id,
+            tableNumber: table.table_number,
+            reservationId: reservation_id,
+            status: status,
+            tableStatus: table.table_status
           });
           
-          // Update table_status based on reservation status
-          if (status === 'Seated') {
-            table.table_status = 'occupied';
-            table.current_reservation = reservation_id;
-          } else if (status === 'Planning' || status === 'Confirmed') {
-            table.table_status = 'reserved';
-          }
-          
-          await table.save();
-          console.log(`Added reservation ${reservation_id} to table ${table.table_number}`);
-          
-          // Emit table update
-          if (io && restaurantId) {
-            io.to(`restaurant_${restaurantId}`).emit('reservationAssigned', {
-              restaurantId: restaurantId,
-              tableId: table._id,
-              tableNumber: table.table_number,
-              reservation: {
-                id: reservation._id,
-                guests: reservation.guests,
-                start_time: reservation.start_time,
-                end_time: reservation.end_time,
-                status: status
-              },
-              timestamp: new Date()
-            });
-            
-            // Also emit a floor layout update
-            io.to(`restaurant_${restaurantId}`).emit('floorLayoutUpdated', {
-              restaurantId: restaurantId,
-              timestamp: new Date(),
-              action: 'refresh'
-            });
-          }
+          // Also emit a floor layout update
+          io.to(`restaurant_${restaurantId}`).emit('floorLayoutUpdated', {
+            restaurantId: restaurantId,
+            timestamp: new Date(),
+            action: 'refresh'
+          });
         }
       } else {
-        console.log(`Table not found for table number ${reservation.tableNumber} and restaurant ${restaurantId}`);
+        console.log(`Table not found for reservation ${reservation_id}`);
       }
-    } else {
-      console.log(`Reservation ${reservation_id} has no table number assigned`);
     }
 
     res.json({
@@ -1600,6 +1510,9 @@ const update_Reservation_Status = async (req, res) => {
   }
 };
 
+/**
+ * Update reservation details including table assignment
+ */
 const update_Reservation_Details = async (req, res) => {
   console.log("START update_Reservation_Details FUNCTION");
   
@@ -1658,7 +1571,8 @@ const update_Reservation_Details = async (req, res) => {
       tableNumber: reservation.tableNumber
     };
     
-    // Keep track of previous table number for updates
+    // Keep track of previous table ID and number for updates
+    const previousTableId = reservation.table_Id;
     const previousTableNumber = reservation.tableNumber;
     
     // Check and update each field individually
@@ -1743,9 +1657,22 @@ const update_Reservation_Details = async (req, res) => {
     }
     
     // Update table number if provided
-    if (tableNumber !== undefined) {
+    let newTableId = null;
+    if (tableNumber !== undefined && tableNumber !== previousTableNumber) {
       reservation.tableNumber = tableNumber;
       updatedFields.tableNumber = tableNumber;
+      
+      // Find the new table ID based on the table number
+      const newTable = await Table.findOne({ 
+        table_number: tableNumber,
+        restaurant_id: restaurant_id || reservation.restaurant?._id
+      });
+      
+      if (newTable) {
+        reservation.table_Id = newTable._id;
+        updatedFields.table_Id = newTable._id;
+        newTableId = newTable._id;
+      }
     }
     
     // Save the updated reservation
@@ -1755,24 +1682,16 @@ const update_Reservation_Details = async (req, res) => {
     const restaurantId = restaurant_id || reservation.restaurant?._id?.toString();
     
     // Handle table updates - first update the existing table if there was one
-    if (previousTableNumber) {
+    if (previousTableId) {
       // Find the previous table
-      const previousTable = await Table.findOne({ 
-        table_number: previousTableNumber,
-        restaurant_id: restaurantId
-      });
+      const previousTable = await Table.findById(previousTableId);
       
       if (previousTable) {
         console.log(`Found previous table ${previousTableNumber}`);
         
-        // If table number changed, remove the reservation from the previous table
+        // If table number changed, update the previous table status
         if (tableNumber !== undefined && tableNumber !== previousTableNumber) {
           console.log(`Table number changed from ${previousTableNumber} to ${tableNumber}`);
-          
-          // Remove reservation from previous table
-          previousTable.reservations = previousTable.reservations.filter(
-            res => !res.reservation_id || res.reservation_id.toString() !== reservation_id.toString()
-          );
           
           // If this was the current reservation, clear it
           if (previousTable.current_reservation && 
@@ -1780,9 +1699,13 @@ const update_Reservation_Details = async (req, res) => {
             previousTable.current_reservation = null;
             
             // Check if there are other active reservations
-            const hasActiveReservations = previousTable.reservations.some(res => 
-              res.client_status !== 'cancelled' && res.client_status !== 'done'
-            );
+            const hasActiveReservations = await UserOrder.findOne({
+              table_Id: previousTable._id,
+              _id: { $ne: reservation_id }, // Excluding the current reservation
+              status: { $nin: ['Cancelled', 'Done'] },
+              start_time: { $lt: new Date(new Date().getTime() + 24*60*60*1000) }, // within next 24 hours
+              end_time: { $gt: new Date() } // not ended yet
+            });
             
             // If no other active reservations, mark table as available
             if (!hasActiveReservations) {
@@ -1791,7 +1714,7 @@ const update_Reservation_Details = async (req, res) => {
           }
           
           await previousTable.save();
-          console.log(`Removed reservation from previous table ${previousTableNumber}`);
+          console.log(`Updated previous table ${previousTableNumber} status to ${previousTable.table_status}`);
           
           // Emit table update
           if (io && restaurantId) {
@@ -1803,136 +1726,17 @@ const update_Reservation_Details = async (req, res) => {
               tableStatus: previousTable.table_status
             });
           }
-        } 
-        // If table didn't change, update the reservation details in the existing table
-        else {
-          console.log(`Updating reservation details in table ${previousTableNumber}`);
-          
-          // Find the reservation in the table's array and update its details
-          const tableReservationIndex = previousTable.reservations.findIndex(
-            res => res.reservation_id && res.reservation_id.toString() === reservation_id.toString()
-          );
-          
-          if (tableReservationIndex !== -1) {
-            // Update start and end time if they were changed
-            if (updatedFields.start_time) {
-              previousTable.reservations[tableReservationIndex].start_time = updatedFields.start_time;
-            }
-            
-            if (updatedFields.end_time) {
-              previousTable.reservations[tableReservationIndex].end_time = updatedFields.end_time;
-            }
-            
-            // Update guest count if it was changed
-            if (updatedFields.guests) {
-              previousTable.reservations[tableReservationIndex].guests_count = updatedFields.guests;
-            }
-            
-            // Ensure client_type is set
-            if (!previousTable.reservations[tableReservationIndex].client_type) {
-              previousTable.reservations[tableReservationIndex].client_type = reservation.client_type;
-            }
-            
-            await previousTable.save();
-            console.log(`Updated reservation details in table ${previousTableNumber}`);
-            
-            // Emit table update
-            if (io && restaurantId) {
-              io.to(`restaurant_${restaurantId}`).emit('tableReservationUpdated', {
-                tableId: previousTable._id,
-                tableNumber: previousTable.table_number,
-                reservationId: reservation_id,
-                updates: updatedFields
-              });
-            }
-          } else {
-            console.log(`Reservation not found in table ${previousTableNumber}`);
-            
-            // Add reservation to table if not found
-            previousTable.reservations.push({
-              reservation_id: reservation._id,
-              client_id: reservation.client_id,
-              client_type: reservation.client_type,
-              start_time: reservation.start_time,
-              end_time: reservation.end_time,
-              guests_count: reservation.guests,
-              client_status: mapOrderStatusToReservationStatus(reservation.status)
-            });
-            
-            // Update table status
-            if (reservation.status === 'Seated') {
-              previousTable.table_status = 'occupied';
-              previousTable.current_reservation = reservation._id;
-            } else if (reservation.status === 'Planning' || reservation.status === 'Confirmed') {
-              previousTable.table_status = 'reserved';
-            }
-            
-            await previousTable.save();
-            console.log(`Added reservation to table ${previousTableNumber}`);
-            
-            // Emit table update
-            if (io && restaurantId) {
-              io.to(`restaurant_${restaurantId}`).emit('reservationAssigned', {
-                restaurantId: restaurantId,
-                tableId: previousTable._id,
-                tableNumber: previousTable.table_number,
-                reservation: {
-                  id: reservation._id,
-                  client_id: reservation.client_id,
-                  guests: reservation.guests,
-                  start_time: reservation.start_time,
-                  end_time: reservation.end_time,
-                  status: reservation.status
-                }
-              });
-            }
-          }
         }
-      } else {
-        console.log(`Previous table ${previousTableNumber} not found`);
       }
     }
     
     // If table number changed, update the new table
-    if (tableNumber !== undefined && tableNumber !== previousTableNumber) {
+    if (newTableId) {
       // Find the new table
-      const newTable = await Table.findOne({ 
-        table_number: tableNumber,
-        restaurant_id: restaurantId
-      });
+      const newTable = await Table.findById(newTableId);
       
       if (newTable) {
         console.log(`Found new table ${tableNumber}`);
-        
-        // Check if reservation already exists in this table
-        const existingReservationIndex = newTable.reservations.findIndex(
-          res => res.reservation_id && res.reservation_id.toString() === reservation_id.toString()
-        );
-        
-        if (existingReservationIndex !== -1) {
-          // Update the existing reservation
-          console.log(`Updating existing reservation in new table ${tableNumber}`);
-          
-          // Update fields
-          newTable.reservations[existingReservationIndex].start_time = reservation.start_time;
-          newTable.reservations[existingReservationIndex].end_time = reservation.end_time;
-          newTable.reservations[existingReservationIndex].guests_count = reservation.guests;
-          newTable.reservations[existingReservationIndex].client_status = 
-            mapOrderStatusToReservationStatus(reservation.status);
-        } else {
-          // Add new reservation
-          console.log(`Adding reservation to new table ${tableNumber}`);
-          
-          newTable.reservations.push({
-            reservation_id: reservation._id,
-            client_id: reservation.client_id,
-            client_type: reservation.client_type,
-            start_time: reservation.start_time,
-            end_time: reservation.end_time,
-            guests_count: reservation.guests,
-            client_status: mapOrderStatusToReservationStatus(reservation.status)
-          });
-        }
         
         // Update table status based on reservation status
         if (reservation.status === 'Seated') {
@@ -1943,7 +1747,7 @@ const update_Reservation_Details = async (req, res) => {
         }
         
         await newTable.save();
-        console.log(`Updated new table ${tableNumber}`);
+        console.log(`Updated new table ${tableNumber} status to ${newTable.table_status}`);
         
         // Emit table update
         if (io && restaurantId) {
@@ -1961,8 +1765,6 @@ const update_Reservation_Details = async (req, res) => {
             }
           });
         }
-      } else {
-        console.log(`New table ${tableNumber} not found`);
       }
     }
     
@@ -2053,7 +1855,6 @@ const update_Reservation_Details = async (req, res) => {
     });
   }
 };
-
 // Helper function to map UserOrder status to reservation client_status
 function mapOrderStatusToReservationStatus(status) {
   console.log(`Mapping order status: ${status}`);
@@ -2532,64 +2333,653 @@ const update_Restaurant_Menu = async (req, res) => {
 };
 
 
-// Helper function to calculate new average rating
-/*const calculateAverageRating = async (restaurantId, newRating) => {
-try {
-  const restaurant = await Restaurant.findById(restaurantId)
-    .populate('reviews');
-  
-  const allRatings = restaurant.reviews.map(review => review.rating);
-  allRatings.push(newRating);
-  
-  const averageRating = allRatings.reduce((sum, rating) => sum + rating, 0) / allRatings.length;
-  return parseFloat(averageRating.toFixed(1));
-} catch (error) {
-  console.error("Error calculating average rating:", error);
-  throw error;
-}
-};*/
+const get_all_bills_for_Restaurants = async (req, res) => {
+  console.log("START get_all_bills_for_Restaurants");
+  try {
+    // Extract and validate request parameters
+    const restaurant_id = req.body.restaurant_id;
+    if (!restaurant_id) {
+      return res.status(400).json({ success: false, message: "Restaurant ID is required" });
+    }
 
-// Get reviews for a restaurant
-/*const get_Restaurant_Reviews = async (req, res) => {
-try {
-  const { restaurant_id } = req.params;
-  
-  const restaurant = await Restaurant.findById(restaurant_id)
-    .populate({
-      path: 'reviews',
-      populate: {
-        path: 'user',
-        select: 'first_name last_name'
+    // Ensure restaurant_id is proper ObjectId
+    const restaurantObjectId = typeof restaurant_id === 'string' 
+      ? new mongoose.Types.ObjectId(restaurant_id) 
+      : restaurant_id;
+
+    console.log(`Processing request for restaurant ID: ${restaurantObjectId}`);
+
+    // Parse date parameters with proper validation
+    let start_date = null;
+    let end_date = null;
+    
+    if (req.body.start_date) {
+      start_date = new Date(req.body.start_date);
+      if (isNaN(start_date.getTime())) {
+        return res.status(400).json({ success: false, message: "Invalid start date format" });
       }
+      console.log(`Using start date: ${start_date.toISOString()}`);
+    }
+    
+    if (req.body.end_date) {
+      end_date = new Date(req.body.end_date);
+      if (isNaN(end_date.getTime())) {
+        return res.status(400).json({ success: false, message: "Invalid end date format" });
+      }
+      // Set end date to end of day
+      end_date.setHours(23, 59, 59, 999);
+      console.log(`Using end date: ${end_date.toISOString()}`);
+    }
+    
+    const analytics = req.body.analytics || false;
+    const page = parseInt(req.body.page) || 1;
+    const limit = parseInt(req.body.limit) || 50;
+    const skip = (page - 1) * limit;
+    const status = req.body.status || null;
+    
+    // NEW APPROACH: Get all valid orders for this restaurant first
+    // This is just to check if our restaurant ID is valid and has orders
+    const orderCountCheck = await UserOrder.countDocuments({ restaurant: restaurantObjectId });
+    console.log(`Total orders for restaurant ${restaurantObjectId}: ${orderCountCheck}`);
+    
+    // NEW APPROACH: Get all bills from RestaurantsBills
+    // We'll do a two-step process:
+    // 1. Get all bills
+    // 2. Filter them to only include those related to our restaurant
+    
+    // Step 1: Build query for bills with date filters only
+    let billDateQuery = {};
+    
+    if (start_date && end_date) {
+      billDateQuery.date = { $gte: start_date, $lte: end_date };
+    } else if (start_date) {
+      billDateQuery.date = { $gte: start_date };
+    } else if (end_date) {
+      billDateQuery.date = { $lte: end_date };
+    }
+    
+    console.log("Initial bill query (date filters only):", JSON.stringify(billDateQuery));
+    
+    // Check if specific bill exists (the one mentioned) before filtering
+    if (mongoose.Types.ObjectId.isValid("67f50abdf604bb8f6eda36d0")) {
+      const testBill = await RestaurantsBills.findById("67f50abdf604bb8f6eda36d0").lean();
+      if (testBill) {
+        console.log("Found specific bill with ID 67f50abdf604bb8f6eda36d0:");
+        console.log("Bill order_id:", testBill.order_id);
+        
+        // Check which restaurant this bill belongs to
+        if (testBill.order_id) {
+          const billOrder = await UserOrder.findById(testBill.order_id).lean();
+          if (billOrder) {
+            console.log("This bill belongs to restaurant:", billOrder.restaurant);
+            console.log("Matches our restaurant?", billOrder.restaurant.toString() === restaurantObjectId.toString());
+          } else {
+            console.log("Could not find order for this bill");
+          }
+        }
+      } else {
+        console.log("Could not find specific bill with ID 67f50abdf604bb8f6eda36d0");
+      }
+    }
+    
+    // Find all bills with date filters
+    const allDateFilteredBills = await RestaurantsBills.find(billDateQuery)
+      .lean();
+    
+    console.log(`Found ${allDateFilteredBills.length} bills matching date filters`);
+    
+    if (allDateFilteredBills.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No bills found matching the date criteria"
+      });
+    }
+    
+    // Extract order IDs from bills
+    const billOrderIds = allDateFilteredBills.map(bill => bill.order_id);
+    
+    // Step 2: Find orders for these bills that belong to our restaurant
+    const relatedOrders = await UserOrder.find({
+      _id: { $in: billOrderIds },
+      restaurant: restaurantObjectId
+    }).lean();
+    
+    console.log(`Found ${relatedOrders.length} orders that match bills and belong to restaurant`);
+    
+    // Get IDs of orders that match our criteria
+    const matchingOrderIds = relatedOrders.map(order => order._id);
+    
+    // Apply status filter if provided
+    let filteredOrderIds = matchingOrderIds;
+    if (status) {
+      const ordersWithStatus = await UserOrder.find({
+        _id: { $in: matchingOrderIds },
+        status: status
+      }).lean();
+      filteredOrderIds = ordersWithStatus.map(order => order._id);
+      console.log(`After status filter, found ${filteredOrderIds.length} matching orders`);
+    }
+    
+    // Now find bills for these filtered orders
+    const matchingBills = allDateFilteredBills.filter(bill => 
+      filteredOrderIds.some(orderId => 
+        bill.order_id && orderId && bill.order_id.toString() === orderId.toString()
+      )
+    );
+    
+    console.log(`Final count of matching bills: ${matchingBills.length}`);
+    
+    // Apply pagination to the bills
+    const totalBills = matchingBills.length;
+    const paginatedBills = matchingBills.slice(skip, skip + limit);
+    
+    // Populate the bills with order data
+    const populatedBills = [];
+    for (const bill of paginatedBills) {
+      const order = relatedOrders.find(o => o._id.toString() === bill.order_id.toString());
+      
+      if (order) {
+        // Manually populate client data
+        let clientData = null;
+        if (order.client_id) {
+          const client = await ClientUser.findById(order.client_id).lean();
+          if (client) {
+            clientData = {
+              _id: client._id,
+              name: client.name,
+              email: client.email,
+              phone: client.phone
+            };
+          }
+        }
+        
+        // Create populated version
+        const populatedBill = {
+          ...bill,
+          order_id: {
+            _id: order._id,
+            client_id: clientData,
+            orderDate: order.orderDate,
+            start_time: order.start_time,
+            end_time: order.end_time,
+            status: order.status,
+            guests: order.guests,
+            tableNumber: order.tableNumber
+          }
+        };
+        
+        populatedBills.push(populatedBill);
+      } else {
+        // If order not found, just include the bill without population
+        populatedBills.push(bill);
+      }
+    }
+    
+    // Get orders for analytics if needed
+    let orders = [];
+    if (analytics) {
+      orders = await UserOrder.find({
+        _id: { $in: matchingOrderIds }
+      })
+      .select('_id client_id guests status orderDate start_time end_time tableNumber')
+      .lean();
+    }
+
+    // If no analytics requested, simply return the bills with pagination info
+    if (!analytics) {
+      return res.status(200).json({
+        success: true,
+        pagination: {
+          total: totalBills,
+          page,
+          limit,
+          pages: Math.ceil(totalBills / limit)
+        },
+        count: populatedBills.length,
+        bills: populatedBills
+      });
+    }
+
+    // ANALYTICS SECTION
+    const analyticsData = calculateAnalytics(populatedBills, orders);
+
+    return res.status(200).json({
+      success: true,
+      pagination: {
+        total: totalBills,
+        page,
+        limit,
+        pages: Math.ceil(totalBills / limit)
+      },
+      count: populatedBills.length,
+      bills: populatedBills,
+      analytics: analyticsData
     });
 
-  if (!restaurant) {
-    return res.status(404).json({
-      success: false,
-      message: "Restaurant not found"
+  } catch (error) {
+    console.error("Error in get_all_bills_for_Restaurants:", error);
+    console.error(error.stack);
+    
+    let errorMessage = "Server error processing restaurant bills";
+    let errorDetails = error.message;
+    
+    if (error.name === 'CastError' && error.kind === 'ObjectId') {
+      errorMessage = "Invalid ID format";
+      errorDetails = `Could not convert "${error.value}" to a valid ObjectId`;
+      return res.status(400).json({ 
+        success: false, 
+        message: errorMessage, 
+        error: errorDetails 
+      });
+    }
+    
+    if (error.name === 'MongooseError' && error.message.includes('Connection')) {
+      errorMessage = "Database connection error";
+    }
+    
+    return res.status(500).json({ 
+      success: false, 
+      message: errorMessage, 
+      error: errorDetails 
     });
   }
-
-  res.status(200).json({
-    success: true,
-    data: restaurant.reviews
-  });
-
-} catch (error) {
-  console.error("Error in get_Restaurant_Reviews:", error);
-  res.status(500).json({
-    success: false,
-    message: "Error fetching reviews",
-    error: error.message
-  });
-}
 };
-*/
 
 
+/**
+ * Calculates detailed analytics from bill and order data
+ * @param {Array} bills - Array of bill documents
+ * @param {Array} orders - Array of order documents
+ * @returns {Object} Comprehensive analytics object
+ */
+const calculateAnalytics = (bills, orders) => {
+  // Initialize analytics data structure
+  const analyticsData = {
+    // Revenue metrics
+    totalRevenue: 0,
+    averageBillAmount: 0,
+    
+    // Time-based analytics
+    salesByDay: {},
+    salesByDayOfWeek: {
+      "Monday": { count: 0, revenue: 0 },
+      "Tuesday": { count: 0, revenue: 0 },
+      "Wednesday": { count: 0, revenue: 0 },
+      "Thursday": { count: 0, revenue: 0 },
+      "Friday": { count: 0, revenue: 0 },
+      "Saturday": { count: 0, revenue: 0 },
+      "Sunday": { count: 0, revenue: 0 }
+    },
+    salesByMonth: {},
+    peakHours: {},
+    
+    // Item analytics
+    topSellingItems: {},
+    itemsByCategory: {},
+    
+    // Customer analytics
+    customerData: {},
+    averageGuestsPerBill: 0,
+    totalGuests: 0,
+    
+    // Table analytics
+    tableUsage: {},
+    
+    // Status analytics
+    orderStatusDistribution: {
+      "Planning": 0,
+      "Done": 0,
+      "Cancelled": 0,
+      "Seated": 0
+    },
+    
+    // Advanced metrics
+    avgTimeSpent: 0,
+    popularItemCombinations: {}
+  };
 
-
+  // Basic metrics calculation
+  if (bills.length === 0) return analyticsData;
   
+  analyticsData.totalRevenue = bills.reduce((sum, bill) => sum + bill.total_Price, 0);
+  analyticsData.averageBillAmount = analyticsData.totalRevenue / bills.length;
+
+  // Track total time spent for calculation of averages
+  let totalTimeSpentMinutes = 0;
+  let billsWithTimeData = 0;
+  
+  // Initialize month names for better readability
+  const monthNames = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+  
+  // Day of week mapping
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  
+  // Process orders for status distribution
+  orders.forEach(order => {
+    if (order.status) {
+      analyticsData.orderStatusDistribution[order.status]++;
+    }
+  });
+
+  // Process each bill for detailed analytics
+  bills.forEach(bill => {
+    // Skip if bill doesn't have necessary data
+    if (!bill) return;
+    
+    // Process date information
+    const billDate = new Date(bill.date);
+    const dateKey = billDate.toISOString().split('T')[0];
+    const monthKey = `${monthNames[billDate.getMonth()]} ${billDate.getFullYear()}`;
+    const dayOfWeekKey = dayNames[billDate.getDay()];
+    
+    // Sales by day
+    if (!analyticsData.salesByDay[dateKey]) {
+      analyticsData.salesByDay[dateKey] = {
+        count: 0,
+        revenue: 0
+      };
+    }
+    analyticsData.salesByDay[dateKey].count += 1;
+    analyticsData.salesByDay[dateKey].revenue += bill.total_Price;
+    
+    // Sales by month
+    if (!analyticsData.salesByMonth[monthKey]) {
+      analyticsData.salesByMonth[monthKey] = {
+        count: 0,
+        revenue: 0
+      };
+    }
+    analyticsData.salesByMonth[monthKey].count += 1;
+    analyticsData.salesByMonth[monthKey].revenue += bill.total_Price;
+    
+    // Sales by day of week
+    analyticsData.salesByDayOfWeek[dayOfWeekKey].count += 1;
+    analyticsData.salesByDayOfWeek[dayOfWeekKey].revenue += bill.total_Price;
+
+    // Top selling items and category analytics
+    if (bill.orders_items && Array.isArray(bill.orders_items)) {
+      bill.orders_items.forEach(item => {
+        // Process item data
+        if (!analyticsData.topSellingItems[item.name]) {
+          analyticsData.topSellingItems[item.name] = {
+            count: 0,
+            revenue: 0,
+            averagePrice: 0
+          };
+        }
+        analyticsData.topSellingItems[item.name].count += item.quantity;
+        analyticsData.topSellingItems[item.name].revenue += item.price * item.quantity;
+        
+        // Process category data if available
+        if (item.category) {
+          if (!analyticsData.itemsByCategory[item.category]) {
+            analyticsData.itemsByCategory[item.category] = {
+              count: 0,
+              revenue: 0,
+              items: {}
+            };
+          }
+          analyticsData.itemsByCategory[item.category].count += item.quantity;
+          analyticsData.itemsByCategory[item.category].revenue += item.price * item.quantity;
+          
+          if (!analyticsData.itemsByCategory[item.category].items[item.name]) {
+            analyticsData.itemsByCategory[item.category].items[item.name] = {
+              count: 0,
+              revenue: 0
+            };
+          }
+          analyticsData.itemsByCategory[item.category].items[item.name].count += item.quantity;
+          analyticsData.itemsByCategory[item.category].items[item.name].revenue += item.price * item.quantity;
+        }
+        
+        // Track popular item combinations
+        if (bill.orders_items.length > 1) {
+          bill.orders_items
+            .filter(otherItem => otherItem.name !== item.name)
+            .forEach(otherItem => {
+              const combination = [item.name, otherItem.name].sort().join(' & ');
+              if (!analyticsData.popularItemCombinations[combination]) {
+                analyticsData.popularItemCombinations[combination] = {
+                  count: 0,
+                  items: [item.name, otherItem.name]
+                };
+              }
+              // Only count combinations once per bill
+              analyticsData.popularItemCombinations[combination].count += 1;
+            });
+        }
+      });
+    }
+
+    // Peak hours analysis
+    if (bill.order_id && bill.order_id.start_time) {
+      const hour = new Date(bill.order_id.start_time).getHours();
+      const hourKey = `${hour}:00 - ${hour + 1}:00`;
+      
+      if (!analyticsData.peakHours[hourKey]) {
+        analyticsData.peakHours[hourKey] = {
+          count: 0,
+          revenue: 0
+        };
+      }
+      analyticsData.peakHours[hourKey].count += 1;
+      analyticsData.peakHours[hourKey].revenue += bill.total_Price;
+    }
+
+    // Calculate time spent if both start and end times are available
+    if (bill.order_id && bill.order_id.start_time && bill.order_id.end_time) {
+      const startTime = new Date(bill.order_id.start_time);
+      const endTime = new Date(bill.order_id.end_time);
+      if (startTime < endTime) {
+        const timeSpentMinutes = (endTime - startTime) / (1000 * 60);
+        totalTimeSpentMinutes += timeSpentMinutes;
+        billsWithTimeData++;
+      }
+    }
+
+    // Customer data analysis
+    if (bill.order_id && bill.order_id.client_id) {
+      const clientId = typeof bill.order_id.client_id === 'object' ? 
+        bill.order_id.client_id._id.toString() : bill.order_id.client_id.toString();
+      
+      if (!analyticsData.customerData[clientId]) {
+        analyticsData.customerData[clientId] = {
+          name: bill.order_id.client_id.name || 'Unknown Customer',
+          visitCount: 0,
+          totalSpent: 0,
+          averageSpend: 0,
+          lastVisit: null
+        };
+      }
+      analyticsData.customerData[clientId].visitCount += 1;
+      analyticsData.customerData[clientId].totalSpent += bill.total_Price;
+      
+      // Track the last visit date
+      const visitDate = new Date(bill.date);
+      if (!analyticsData.customerData[clientId].lastVisit || 
+          visitDate > new Date(analyticsData.customerData[clientId].lastVisit)) {
+        analyticsData.customerData[clientId].lastVisit = visitDate;
+      }
+    }
+
+    // Guest count analytics
+    if (bill.order_id && bill.order_id.guests) {
+      analyticsData.totalGuests += bill.order_id.guests;
+    }
+
+    // Table usage analytics
+    if (bill.order_id && bill.order_id.tableNumber) {
+      const tableKey = bill.order_id.tableNumber;
+      if (!analyticsData.tableUsage[tableKey]) {
+        analyticsData.tableUsage[tableKey] = {
+          usageCount: 0,
+          totalRevenue: 0,
+          averageRevenue: 0,
+          averageGuests: 0,
+          totalGuests: 0
+        };
+      }
+      analyticsData.tableUsage[tableKey].usageCount += 1;
+      analyticsData.tableUsage[tableKey].totalRevenue += bill.total_Price;
+      
+      if (bill.order_id.guests) {
+        analyticsData.tableUsage[tableKey].totalGuests += bill.order_id.guests;
+      }
+    }
+  });
+
+  // Calculate derived metrics and format data
+  
+  // Average time spent calculation
+  if (billsWithTimeData > 0) {
+    analyticsData.avgTimeSpent = Math.round(totalTimeSpentMinutes / billsWithTimeData);
+  }
+  
+  // Average guests per bill
+  if (bills.length > 0) {
+    analyticsData.averageGuestsPerBill = analyticsData.totalGuests / bills.length;
+  }
+
+  // Calculate averages for items
+  Object.keys(analyticsData.topSellingItems).forEach(key => {
+    analyticsData.topSellingItems[key].averagePrice = 
+      analyticsData.topSellingItems[key].revenue / analyticsData.topSellingItems[key].count;
+  });
+
+  // Calculate customer averages
+  Object.keys(analyticsData.customerData).forEach(key => {
+    analyticsData.customerData[key].averageSpend = 
+      analyticsData.customerData[key].totalSpent / analyticsData.customerData[key].visitCount;
+  });
+
+  // Calculate table usage averages
+  Object.keys(analyticsData.tableUsage).forEach(key => {
+    analyticsData.tableUsage[key].averageRevenue = 
+      analyticsData.tableUsage[key].totalRevenue / analyticsData.tableUsage[key].usageCount;
+    
+    if (analyticsData.tableUsage[key].usageCount > 0) {
+      analyticsData.tableUsage[key].averageGuests = 
+        analyticsData.tableUsage[key].totalGuests / analyticsData.tableUsage[key].usageCount;
+    }
+  });
+
+  // Sort and process item combinations
+  analyticsData.popularItemCombinations = Object.entries(analyticsData.popularItemCombinations)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 10) // Top 10 combinations
+    .reduce((obj, [key, value]) => {
+      obj[key] = value;
+      return obj;
+    }, {});
+
+  // Sort top selling items by count
+  analyticsData.topSellingItems = Object.entries(analyticsData.topSellingItems)
+    .sort((a, b) => b[1].count - a[1].count)
+    .reduce((obj, [key, value]) => {
+      obj[key] = value;
+      return obj;
+    }, {});
+
+  // Find best sales day
+  const bestDay = Object.entries(analyticsData.salesByDay)
+    .sort((a, b) => b[1].revenue - a[1].revenue)[0];
+  analyticsData.bestSalesDay = bestDay ? { date: bestDay[0], ...bestDay[1] } : null;
+
+  // Find best sales month
+  const bestMonth = Object.entries(analyticsData.salesByMonth)
+    .sort((a, b) => b[1].revenue - a[1].revenue)[0];
+  analyticsData.bestSalesMonth = bestMonth ? { month: bestMonth[0], ...bestMonth[1] } : null;
+
+  // Find best day of week
+  const bestDayOfWeek = Object.entries(analyticsData.salesByDayOfWeek)
+    .sort((a, b) => b[1].revenue - a[1].revenue)[0];
+  analyticsData.bestDayOfWeek = bestDayOfWeek ? { day: bestDayOfWeek[0], ...bestDayOfWeek[1] } : null;
+
+  // Find peak hour
+  const busiest = Object.entries(analyticsData.peakHours)
+    .sort((a, b) => b[1].count - a[1].count)[0];
+  analyticsData.busiestHour = busiest ? { time: busiest[0], ...busiest[1] } : null;
+
+  // Find most valuable customer
+  const mostValuable = Object.entries(analyticsData.customerData)
+    .sort((a, b) => b[1].totalSpent - a[1].totalSpent)[0];
+  analyticsData.mostValuableCustomer = mostValuable ? 
+    { id: mostValuable[0], ...mostValuable[1] } : null;
+
+  // Find most frequent customer
+  const mostFrequent = Object.entries(analyticsData.customerData)
+    .sort((a, b) => b[1].visitCount - a[1].visitCount)[0];
+  analyticsData.mostFrequentCustomer = mostFrequent ? 
+    { id: mostFrequent[0], ...mostFrequent[1] } : null;
+
+  // Find most profitable table
+  const mostProfitableTable = Object.entries(analyticsData.tableUsage)
+    .sort((a, b) => b[1].totalRevenue - a[1].totalRevenue)[0];
+  analyticsData.mostProfitableTable = mostProfitableTable ? 
+    { table: mostProfitableTable[0], ...mostProfitableTable[1] } : null;
+
+  return analyticsData;
+};
+
+
+
+// Function to get all bills for a user
+const get_all_bills_for_user = async (req, res) => {
+  console.log("START get_all_bills_for_user");
+  try {
+    const user_id = req.body.user_id;
+    const start_date = req.body.start_date ? new Date(req.body.start_date) : null;
+    const end_date = req.body.end_date ? new Date(req.body.end_date) : null;
+
+    // Find all orders made by this user
+    const orders = await UserOrder.find({ client_id: user_id });
+    
+    if (!orders || orders.length === 0) {
+      return res.status(404).json({ message: "No orders found for this user" });
+    }
+
+    // Get all order IDs
+    const orderIds = orders.map(order => order._id);
+
+    // Build query for bills
+    let billQuery = { order_id: { $in: orderIds } };
+    
+    // Add date filtering if provided
+    if (start_date && end_date) {
+      billQuery.date = { $gte: start_date, $lte: end_date };
+    } else if (start_date) {
+      billQuery.date = { $gte: start_date };
+    } else if (end_date) {
+      billQuery.date = { $lte: end_date };
+    }
+
+    // Find all bills related to the user's orders
+    /*const bills = await RestaurantsBills.find(billQuery)
+      .populate({
+        path: 'order_id',
+        select: 'restaurant orderDate start_time end_time status guests table_Id tableNumber',
+        populate: {
+          path: 'restaurant',
+          select: 'name address phone email'
+        }
+      })
+      .sort({ date: -1 });*/
+
+    // Return only bill details without analytics
+    return res.status(200).json({
+      count: bills.length,
+      bills: bills
+    });
+
+  } catch (error) {
+    console.error("Error in get_all_bills_for_user:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
+
 module.exports = {
   all_Restaurants_Data,
   Restaurants_Reservation,
@@ -2602,6 +2992,8 @@ module.exports = {
   get_Customer_Reservation_History,
   get_Restaurant_Clients,
   get_Restaurant_Menu,
-  update_Restaurant_Menu
+  update_Restaurant_Menu,
+  get_all_bills_for_Restaurants,
+  get_all_bills_for_user,
 };
   

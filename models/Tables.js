@@ -52,39 +52,6 @@ const TableSchema = new mongoose.Schema({
     ref: 'UserOrder',
     default: null
   },
-  reservations: [{
-    reservation_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'UserOrder'
-    },
-    client_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      refPath: 'client_type'
-    },
-    client_type: {
-      type: String,
-      enum: ['ClientUser', 'ClientGuest'],
-      required: true
-    },
-    start_time: {
-      type: Date,
-      required: true
-    },
-    end_time: {
-      type: Date,
-      required: true
-    },
-    guests_count: {
-      type: Number,
-      required: true
-    },
-    client_status: {
-      type: String,
-      enum: ['planning', 'confirmed', 'seated', 'done', 'cancelled'],
-      default: 'planning'
-    },
-    notes: String
-  }]
 }, { timestamps: true });
 
 TableSchema.index({ restaurant_id: 1, table_number: 1 }, { unique: true });

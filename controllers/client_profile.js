@@ -65,7 +65,8 @@ const userData = async (req, res) => {
       email: clientData.email,
       phone_number: clientData.phone_number,
       allergies: clientData.allergies.map(a => a.name),
-      orders: ordersWithRestaurantDetails,
+      //orders: ordersWithRestaurantDetails,
+      orderDate: formatDate(order.start_time),
       profileImage: clientData.profileImage
     });
   } catch (error) {
