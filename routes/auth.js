@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sendTotpCodeForClientUser,verifyTotpCode,changeClientPassword } = require('../controllers/auth')
-const { sendMail } = require('../messages/email_message')
+const { sendMail } = require('../MessageSystem/email_message')
 
 
 

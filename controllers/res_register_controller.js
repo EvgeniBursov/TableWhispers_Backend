@@ -2,7 +2,7 @@
 const ResClientUser = require('../models/Res_User')
 const bcrypt = require('bcrypt')
 const generator = require('username-generator');
-const { sendMail } = require('../messages/email_message');
+const { sendMail } = require('../MessageSystem/email_message');
 
 const createNewResUser = async (req, res) => {
   
