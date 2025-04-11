@@ -28,6 +28,8 @@ const upload_image_route = require('./upload_image/upload_image_service');
 
 const tables_management = require('./routes/tables_route');
 
+const survey_management = require('./routes/survey_route')
+
 // Create Express app
 const server_app = express();
 
@@ -56,6 +58,7 @@ server_app.use(res_register_route);
 server_app.use(res_login_route);
 server_app.use(restaurants_route);
 server_app.use(tables_management);
+server_app.use(survey_management);
 
 // Serve static files
 server_app.use('/public', express.static(path.join(__dirname, 'public')));

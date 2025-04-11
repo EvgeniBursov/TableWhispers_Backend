@@ -233,9 +233,6 @@ const add_New_Reviews = async (req, res) =>{
     }
     console.log("****************************************************",totalRating,validReviewCount)
   }
-
-
-
     await restaurant.save()
     res.status(201).json({
       success: true,
