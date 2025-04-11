@@ -28,52 +28,64 @@ const userData = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
+    // Define date formatting functions
+    const formatTime = (timeString) => {
+      if (!timeString) return null;
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false // Use 24-hour format
+      });
+    };
+
+    const formatDate = (dateString) => {
+      if (!dateString) return null;
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    };
+
     const ordersWithRestaurantDetails = Array.isArray(clientData.orders)
       ? clientData.orders.map(order => {
-          // Format the start_time and end_time to only show hours and minutes
-          const formatTime = (timeString) => {
-            if (!timeString) return null;
-            const date = new Date(timeString);
-            return date.toLocaleTimeString('he-IL', { 
-              hour: '2-digit', 
-              minute: '2-digit',
-              hour12: false // Use 24-hour format
-            });
-          };
-
           return {
             order_id: order._id,
-            restaurantName: order.restaurant.res_name,
-            restaurantPhone: order.restaurant.phone_number,
-            restaurantCity: order.restaurant.city,
-            restaurantDescription: order.restaurant.description,
-            guests: order.guests,
-            status: order.status,
-            orderDate: order.orderDate,
+            restaurantName: order.restaurant?.res_name || "Unknown Restaurant",
+            restaurantPhone: order.restaurant?.phone_number || "",
+            restaurantCity: order.restaurant?.city || "",
+            restaurantDescription: order.restaurant?.description || "",
+            guests: order.guests || 0,
+            status: order.status || "",
+            orderDate: formatDate(order.orderDate),
             orderStart: formatTime(order.start_time),
             orderEnd: formatTime(order.end_time)
           };
       })
-      : [];  // Fixed this line to return empty array if no orders
+      : [];  // Return empty array if no orders
     
     console.log(ordersWithRestaurantDetails);
     
     res.status(200).json({
-      first_name: clientData.first_name,
-      last_name: clientData.last_name,
-      age: clientData.age,
-      email: clientData.email,
-      phone_number: clientData.phone_number,
-      allergies: clientData.allergies.map(a => a.name),
-      //orders: ordersWithRestaurantDetails,
-      orderDate: formatDate(order.start_time),
-      profileImage: clientData.profileImage
+      first_name: clientData.first_name || "",
+      last_name: clientData.last_name || "",
+      age: clientData.age || null,
+      email: clientData.email || "",
+      phone_number: clientData.phone_number || "",
+      allergies: Array.isArray(clientData.allergies) 
+        ? clientData.allergies.map(a => a.name)
+        : [],
+      orders: ordersWithRestaurantDetails, // Include the orders in the response
+      profileImage: clientData.profileImage || ""
     });
   } catch (error) {
-    console.log(error);
+    console.error("Error in userData function:", error);
     res.status(500).json({ error: 'Server error' });
   }
 };
+  
 
 if (!fs.existsSync(profileImagesDir)) {
   fs.mkdirSync(profileImagesDir, { recursive: true });

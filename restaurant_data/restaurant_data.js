@@ -2928,57 +2928,67 @@ const calculateAnalytics = (bills, orders) => {
 const get_all_bills_for_user = async (req, res) => {
   console.log("START get_all_bills_for_user");
   try {
-    const user_id = req.body.user_id;
-    const start_date = req.body.start_date ? new Date(req.body.start_date) : null;
-    const end_date = req.body.end_date ? new Date(req.body.end_date) : null;
+    const order_id = req.params.id;
+    console.log("Looking for bill with order_id:", order_id);
 
-    // Find all orders made by this user
-    const orders = await UserOrder.find({ client_id: user_id });
-    
-    if (!orders || orders.length === 0) {
-      return res.status(404).json({ message: "No orders found for this user" });
+    if (!order_id) {
+      return res.status(400).json({ success: false, message: "Order ID is required" });
     }
 
-    // Get all order IDs
-    const orderIds = orders.map(order => order._id);
-
-    // Build query for bills
-    let billQuery = { order_id: { $in: orderIds } };
-    
-    // Add date filtering if provided
-    if (start_date && end_date) {
-      billQuery.date = { $gte: start_date, $lte: end_date };
-    } else if (start_date) {
-      billQuery.date = { $gte: start_date };
-    } else if (end_date) {
-      billQuery.date = { $lte: end_date };
+    let orderObjectId;
+    try {
+      orderObjectId = new mongoose.Types.ObjectId(String(order_id));
+    } catch (err) {
+      return res.status(400).json({ success: false, message: "Invalid Order ID format" });
     }
 
-    // Find all bills related to the user's orders
-    /*const bills = await RestaurantsBills.find(billQuery)
-      .populate({
-        path: 'order_id',
-        select: 'restaurant orderDate start_time end_time status guests table_Id tableNumber',
-        populate: {
-          path: 'restaurant',
-          select: 'name address phone email'
-        }
-      })
-      .sort({ date: -1 });*/
+    const bills = await RestaurantsBills.find({ order_id: orderObjectId });
+    console.log(bills)
+    if (!bills || bills.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "No bill found for this order" 
+      });
+    }
 
-    // Return only bill details without analytics
+    const formattedBills = bills.map((bill) => ({
+      _id: bill._id,
+      restaurant: {
+        name: "Restaurant",
+        address: "",
+        phone: "",
+        email: "",
+        logo: ""
+      },
+      orderDetails: {
+        orderDate: bill.date,
+        orderNumber: order_id,
+        tableNumber: "",
+        guests: 1
+      },
+      items: bill.orders_items || [],
+      financials: {
+        subtotal: 0,
+        tax: 0,
+        total: bill.total_Price || 0,
+        date: bill.date
+      }
+    }));
+
     return res.status(200).json({
-      count: bills.length,
-      bills: bills
+      success: true,
+      bills: formattedBills
     });
 
   } catch (error) {
     console.error("Error in get_all_bills_for_user:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(500).json({ 
+      success: false, 
+      message: "Server error processing bill", 
+      error: error.message 
+    });
   }
 };
-
-
 
 module.exports = {
   all_Restaurants_Data,

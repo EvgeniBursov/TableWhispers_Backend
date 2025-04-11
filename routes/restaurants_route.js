@@ -40,7 +40,7 @@ router.post('/update_Restaurant_Menu/restaurant/:id', update_Restaurant_Menu);
 
 router.post('/get_all_bills_for_Restaurants/restaurant/', get_all_bills_for_Restaurants);
 
-router.get('/get_all_bills_for_user/order/:id', get_all_bills_for_user);
+router.post('/get_all_bills_for_user/order/:id', get_all_bills_for_user);
 
 
 module.exports = router;
