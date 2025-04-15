@@ -100,7 +100,7 @@ async function sendRestaurantFeedbackEmails() {
 
 // Schedule daily feedback emails
 function scheduleDailyFeedbackEmails() {
- // sendRestaurantFeedbackEmails()
+  ////sendRestaurantFeedbackEmails()
   cron.schedule('0 10 * * *', async () => {
     console.log('Triggering scheduled feedback emails...');
     await sendRestaurantFeedbackEmails();

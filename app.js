@@ -9,7 +9,9 @@ const path = require('path');
 const cron = require('node-cron');
 
 const { scheduleDailyFeedbackEmails }  = require('./MessageSystem/RestaurantFeedbackSystem');
-const { scheduleDailyReminderEmails } = require('./MessageSystem/ReminderSystem')
+const { scheduleDailyReminderEmails } = require('./MessageSystem/ReminderSystem');
+
+const ChatSystem = require('./MessageSystem/ChatSystem');
 
 const client_register_route = require('./routes/client_register_route');
 const client_login_route = require('./routes/client_login_route');
@@ -28,7 +30,9 @@ const upload_image_route = require('./upload_image/upload_image_service');
 
 const tables_management = require('./routes/tables_route');
 
-const survey_management = require('./routes/survey_route')
+const survey_management = require('./routes/survey_route');
+
+const chat_routes = require('./routes/chat_route');
 
 // Create Express app
 const server_app = express();
@@ -59,6 +63,7 @@ server_app.use(res_login_route);
 server_app.use(restaurants_route);
 server_app.use(tables_management);
 server_app.use(survey_management);
+server_app.use(chat_routes);
 
 // Serve static files
 server_app.use('/public', express.static(path.join(__dirname, 'public')));
@@ -89,6 +94,23 @@ io.on('connection', (socket) => {
   
   // Track connected users/restaurants
   const connectedClients = new Map();
+
+  socket.on('joinOrderRoom', ({ orderId }) => {
+    if (!orderId) return;
+    
+    const roomName = `order_${orderId}`;
+    socket.join(roomName);
+    console.log(`Client ${socket.id} joined order room: ${roomName}`);
+  });
+  
+  // Leave order-specific room
+  socket.on('leaveOrderRoom', ({ orderId }) => {
+    if (!orderId) return;
+    
+    const roomName = `order_${orderId}`;
+    socket.leave(roomName);
+    console.log(`Client ${socket.id} left order room: ${roomName}`);
+  });
   
   // Join restaurant-specific room
   socket.on('joinRestaurantRoom', ({ restaurantId }) => {
@@ -192,6 +214,131 @@ io.on('connection', (socket) => {
     if (data.customerEmail) {
       const customerRoom = `customer_${data.customerEmail}`;
       io.to(customerRoom).emit('reservationStatusChanged', data);
+    }
+  });
+
+socket.on('sendMessage', async (data) => {
+  try {
+    console.log('Received chat message:', data);
+    const savedMessage = await ChatSystem.saveMessage(data);
+    
+    // Extract just the order ID
+    const orderId = data.order_id;
+    
+    // All clients interested in this order are in the order room
+    const orderRoom = `order_${orderId}`;
+    
+    // Broadcast to order room (except the sender)
+    socket.to(orderRoom).emit('newMessage', savedMessage);
+    console.log(`Broadcast message to order room: ${orderRoom}`);
+    
+    // Send back to sender as confirmation (will update their UI)
+    socket.emit('messageSent', savedMessage);
+    /*console.log('Received chat message:', data);
+    const savedMessage = await ChatSystem.saveMessage(data);
+    
+    // Extract essential information from the message
+    const orderId = data.order_id;
+    let customerEmail, restaurantId;
+    
+    // Set variables based on sender and recipient type
+    if (data.sender_type === 'restaurant') {
+      restaurantId = data.restaurant_sender_id;
+      customerEmail = data.user_recipient_email;
+    } else { // sender_type === 'customer'
+      customerEmail = data.user_sender_email;
+      restaurantId = data.restaurant_recipient_id;
+      
+      // If restaurant_recipient_id is missing, try to get it from the saved message
+      if (!restaurantId && savedMessage.restaurant_recipient_id) {
+        restaurantId = savedMessage.restaurant_recipient_id;
+      }
+    }
+    
+    console.log(`Broadcasting message to rooms: restaurant_${restaurantId}, customer_${customerEmail}, order_${orderId}`);
+    
+    // Send message to restaurant room
+    if (restaurantId) {
+      const restaurantRoom = `restaurant_${restaurantId}`;
+      io.to(restaurantRoom).emit('newMessage', savedMessage);
+    }
+    
+    // Send message to customer room
+    if (customerEmail) {
+      const customerRoom = `customer_${customerEmail}`;
+      io.to(customerRoom).emit('newMessage', savedMessage);
+    }
+    
+    // Also send to order-specific room
+    const orderRoom = `order_${orderId}`;
+    io.to(orderRoom).emit('newMessage', savedMessage);
+    
+    // Send confirmation to sender
+    socket.emit('messageSent', {
+      messageId: savedMessage._id,
+      timestamp: savedMessage.timestamp
+    });*/
+    
+  } catch (error) {
+    console.error('Error processing chat message:', error);
+    socket.emit('error', { message: 'Failed to send message', error: error.message });
+  }
+});
+  
+  socket.on('markMessageRead', async (data) => {
+    try {
+      const { messageId } = data;
+      console.log(`Marking message as read: ${messageId}`);
+      // Fixed: Use ChatSystem.markMessageAsRead instead of just markMessageAsRead
+      const updatedMessage = await ChatSystem.markMessageAsRead(messageId);
+      if (updatedMessage.sender_type === 'restaurant') {
+        const roomName = `restaurant_${updatedMessage.restaurant_sender_id}`;
+        io.to(roomName).emit('messageRead', { messageId });
+      } else if (updatedMessage.sender_type === 'customer') {
+        const roomName = `customer_${updatedMessage.user_sender_email}`;
+        io.to(roomName).emit('messageRead', { messageId });
+      }
+      
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+      socket.emit('error', { message: 'Failed to mark message as read', error: error.message });
+    }
+  });
+  socket.on('typing', (data) => {
+    const { sender_type, restaurant_sender_id, user_sender_email, recipient_type, restaurant_recipient_id, user_recipient_email } = data;
+    if (recipient_type === 'restaurant') {
+      const roomName = `restaurant_${restaurant_recipient_id}`;
+      socket.to(roomName).emit('userTyping', { 
+        sender_type, 
+        restaurant_sender_id, 
+        user_sender_email 
+      });
+    } else if (recipient_type === 'customer') {
+      const roomName = `customer_${user_recipient_email}`;
+      socket.to(roomName).emit('userTyping', { 
+        sender_type, 
+        restaurant_sender_id, 
+        user_sender_email 
+      });
+    }
+  });
+  
+  socket.on('stoppedTyping', (data) => {
+    const { sender_type, restaurant_sender_id, user_sender_email, recipient_type, restaurant_recipient_id, user_recipient_email } = data;
+    if (recipient_type === 'restaurant') {
+      const roomName = `restaurant_${restaurant_recipient_id}`;
+      socket.to(roomName).emit('userStoppedTyping', { 
+        sender_type, 
+        restaurant_sender_id, 
+        user_sender_email 
+      });
+    } else if (recipient_type === 'customer') {
+      const roomName = `customer_${user_recipient_email}`;
+      socket.to(roomName).emit('userStoppedTyping', { 
+        sender_type, 
+        restaurant_sender_id, 
+        user_sender_email 
+      });
     }
   });
   
