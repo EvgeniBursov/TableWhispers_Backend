@@ -7,12 +7,13 @@ on:
   push:
     branches:
       - main
-      - Dev_Restaurant_Page
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read #This is required for actions/checkout
 
     steps:
       - uses: actions/checkout@v4
@@ -20,13 +21,13 @@ jobs:
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
-          node-version: '18.x'
+          node-version: '20.x'
 
       - name: npm install, build, and test
         run: |
           npm install
           npm run build --if-present
-#          npm run test --if-present
+          npm run test --if-present
       
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -42,6 +43,7 @@ jobs:
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
       id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
 
     steps:
       - name: Download artifact from build job
@@ -52,9 +54,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_617D032DDAB34D38AAE856B81518498C }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C659F2EBF6C8432CA8BAE7221553A542 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_360F50AF4A9A4CC3B788B7FC47B74C04 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_754C9B9766A348A7B097354336D04BC6 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_88002217FE6F4D6CBE11E925F102CEFB }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_BCCB8F9E198F4F438D73643030967AAB }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
