@@ -52,13 +52,14 @@ const io = new Server(http_server, {
 // server_app.use(cors());
 server_app.use(cors({
   origin: [
-    'https://gentle-water-06b1d4400.4.azurestaticapps.net/', 
+    'https://gentle-water-06b1d4400.4.azurestaticapps.net', 
     'http://localhost:5173'  // LOCAL
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
 server_app.use(bodyParser.json());
+server_app.use(express.urlencoded({ extended: true }));
 
 // Add routes
 server_app.use(client_register_route);
