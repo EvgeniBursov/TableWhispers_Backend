@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcryptjs')
 const ClientUser = require('../models/Client_User')
 const ResUser = require('../models/Res_User')
 const { sendMail } = require('../MessageSystem/email_message');
