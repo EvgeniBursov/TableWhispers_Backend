@@ -26,7 +26,7 @@ const reset_user_password = require('./routes/auth');
 
 const client_profile = require('./routes/client_profile_route');
 
-const upload_image_route = require('./upload_image/upload_image_service');
+//const upload_image_route = require('./upload_image/upload_image_service');
 
 const tables_management = require('./routes/tables_route');
 
@@ -67,7 +67,7 @@ server_app.use(client_register_route);
 server_app.use(client_login_route);
 server_app.use(send_totp_code_to_client, verify_totp_code, reset_user_password);
 server_app.use(client_profile);
-server_app.use(upload_image_route);
+//server_app.use(upload_image_route);
 server_app.use(res_register_route);
 server_app.use(res_login_route);
 server_app.use(restaurants_route);
