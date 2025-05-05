@@ -62,6 +62,15 @@ server_app.use(cors({
 server_app.use(bodyParser.json());
 server_app.use(express.urlencoded({ extended: true }));
 
+
+server_app.get('/test', (req, res) => {
+  res.json({ status: 'ok', message: 'API is working!' });
+});
+
+server_app.get('/', (req, res) => {
+  res.send('Server is running correctly');
+});
+
 // Add routes
 server_app.use(client_register_route);
 server_app.use(client_login_route);
@@ -383,13 +392,7 @@ db.once('open', () => { console.log('Connected to MongoDB'); });
 scheduleDailyFeedbackEmails();
 scheduleDailyReminderEmails();
 
-server_app.get('/test', (req, res) => {
-  res.json({ status: 'ok', message: 'API is working!' });
-});
 
-server_app.get('/', (req, res) => {
-  res.send('Server is running correctly');
-});
 
 // Export Express app and Socket.IO instance
 module.exports = { server_app, io };
