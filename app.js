@@ -383,5 +383,9 @@ db.once('open', () => { console.log('Connected to MongoDB'); });
 scheduleDailyFeedbackEmails();
 scheduleDailyReminderEmails();
 
+server_app.get('/test', (req, res) => {
+  res.json({ status: 'ok', message: 'API is working!' });
+});
+
 // Export Express app and Socket.IO instance
 module.exports = { server_app, io };
