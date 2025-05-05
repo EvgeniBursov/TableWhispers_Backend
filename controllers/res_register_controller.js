@@ -1,6 +1,6 @@
 //TODO תנאי שימוש חסרים
 const ResClientUser = require('../models/Res_User')
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcryptjs')
 const generator = require('username-generator');
 const { sendMail } = require('../MessageSystem/email_message');
 
