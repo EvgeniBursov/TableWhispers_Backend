@@ -41,6 +41,10 @@ const ResUserSchema = new mongoose.Schema({
       type: String,
       required: false
   },
+  restaurant_id:{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'RestaruntSchema'
+},
   totpSecret: String,
 }, { timestamps: true });
 
