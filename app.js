@@ -393,12 +393,5 @@ scheduleDailyFeedbackEmails();
 scheduleDailyReminderEmails();
 
 
-if (require.main === module) {
-  const port = process.env.PORT || 6000;
-  server_app.listen(port, () => {
-    console.log('Server is up and running from app.js on port:', port);
-  });
-}
-
 // Export Express app and Socket.IO instance
 module.exports = { server_app, io };
