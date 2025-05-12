@@ -372,13 +372,20 @@ socket.on('sendMessage', async (data) => {
 
 // Environment configuration
 dotenv.config();
-const server_app_port = process.env.CLIEN_PORT;
+//const server_app_port = process.env.CLIEN_PORT;
 
 // Start server
-http_server.listen(server_app_port, () => {
+/*http_server.listen(server_app_port, () => {
     console.log('Server is up and running on port:', server_app_port);
     console.log('WebSockets enabled on server');
-});
+});*/
+if (require.main === module) {
+  const port = process.env.CLIEN_PORT || 6000; 
+  http_server.listen(port, () => {
+    console.log('Server is up and running on port:', port);
+    console.log('WebSockets enabled on server');
+  });
+}
 
 // Database connection
 const dataBaseURL = process.env.DATABASE_URL;
@@ -391,13 +398,6 @@ db.once('open', () => { console.log('Connected to MongoDB'); });
 // Schedule tasks
 scheduleDailyFeedbackEmails();
 scheduleDailyReminderEmails();
-
-/*if (require.main === module) {
-  const port = process.env.PORT || 6000;
-  server_app.listen(port, () => {
-    console.log('Server is up and running from app.js on port:', port);
-  });
-}*/
 
 // Export Express app and Socket.IO instance
 module.exports = { server_app, io };
