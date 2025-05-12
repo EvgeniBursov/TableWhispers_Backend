@@ -379,13 +379,21 @@ dotenv.config();
     console.log('Server is up and running on port:', server_app_port);
     console.log('WebSockets enabled on server');
 });*/
-if (require.main === module) {
+
+const port = process.env.CLIEN_PORT || 6000; 
+http_server.listen(port, () => {
+  console.log('Server is up and running on port:', port);
+  console.log('WebSockets enabled on server');
+});
+
+
+/*aif (require.main === module) {
   const port = process.env.CLIEN_PORT || 6000; 
   http_server.listen(port, () => {
-    console.log('Server is up and running on port:', port);
+    console.log('Server is up and running on port :', port);
     console.log('WebSockets enabled on server');
   });
-}
+}*/
 
 // Database connection
 const dataBaseURL = process.env.DATABASE_URL;
