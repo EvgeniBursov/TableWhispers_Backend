@@ -27,7 +27,7 @@ async function sendRestaurantReminderEmails() {
         console.error(`Order ${order._id} does not have a client_id`);
         return; // Skip this order if client_id is missing
       }
-      console.log(order)
+      //console.log(order)
 
       let user = null;
       let email = null;
@@ -51,7 +51,7 @@ async function sendRestaurantReminderEmails() {
         const reminderMessage = generateReminderMessage(order);
         try {
           await sendMail(email, reminderMessage, 'reminder_request');
-          console.log(`Reminder email sent to ${email}`);
+          //console.log(`Reminder email sent to ${email}`);
         } catch (err) {
           console.error(`Failed to send reminder to ${email}:`, err);
         }
@@ -99,7 +99,7 @@ function generateReminderMessage(order) {
 
 function scheduleDailyReminderEmails() {
   cron.schedule('30 10 * * *', async () => {
-    console.log('Triggering scheduled reminder emails...');
+    //console.log('Triggering scheduled reminder emails...');
     await sendRestaurantReminderEmails();
   });
 }

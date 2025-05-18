@@ -66,7 +66,7 @@ const userData = async (req, res) => {
       })
       : [];  // Return empty array if no orders
     
-    console.log(ordersWithRestaurantDetails);
+    ////console.log(ordersWithRestaurantDetails);
     
     res.status(200).json({
       first_name: clientData.first_name || "",
@@ -205,7 +205,7 @@ const deleteClientProfile = async (req, res) => {
   
     try {
       const client_user = await ClientUser.findOne({ email: req_email });
-      console.log("Found user:", client_user);
+      ////console.log("Found user:", client_user);
   
       if (!client_user) {
         return res.status(404).json({ error: 'User not found' });
@@ -230,7 +230,7 @@ const deleteClientProfile = async (req, res) => {
   
   const updateUserAlergic = async (req, res) => {
     const { email, name_allergies, type } = req.body;
-    console.log(email, name_allergies, type)
+    ////console.log(email, name_allergies, type)
     try {
         const allergyDoc = await allergies.findOne({ name: name_allergies });
         if (!allergyDoc) {
@@ -269,7 +269,7 @@ const getListOfAllergies = async (req,res) =>{
   try {
     const ListOfAllergies = await allergies.find({}, 'name');
     if (!ListOfAllergies || ListOfAllergies.length === 0) {
-      console.log("No allergies found");
+      ////console.log("No allergies found");
       return res.status(404).json({ error: 'No allergies found' });
     }
     return res.status(200).json(ListOfAllergies);
@@ -313,7 +313,7 @@ const updateUserPhoneNumber = async (req, res) => {
 }
 
 const cancelUpcomingOrders = async (req, res) => {
-  console.log("Start cancel Upcoming Orders")
+  ////console.log("Start cancel Upcoming Orders")
   const order_id = req.body.orderId;
   
   // Validate order ID
@@ -354,7 +354,7 @@ const cancelUpcomingOrders = async (req, res) => {
         cancelledAt: new Date()
       });
       
-      console.log(`Emitted orderCancelled event to restaurant_${order.restaurant._id}`);
+      ////console.log(`Emitted orderCancelled event to restaurant_${order.restaurant._id}`);
     } else {
       console.warn('Socket.IO instance not available');
     }

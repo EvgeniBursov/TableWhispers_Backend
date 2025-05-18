@@ -109,7 +109,7 @@ server_app.set('socketio', io);
 
 // Enhanced Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+  //console.log('Client connected:', socket.id);
   
   // Track connected users/restaurants
   const connectedClients = new Map();
@@ -119,7 +119,7 @@ io.on('connection', (socket) => {
     
     const roomName = `order_${orderId}`;
     socket.join(roomName);
-    console.log(`Client ${socket.id} joined order room: ${roomName}`);
+    //console.log(`Client ${socket.id} joined order room: ${roomName}`);
   });
   
   // Leave order-specific room
@@ -128,7 +128,7 @@ io.on('connection', (socket) => {
     
     const roomName = `order_${orderId}`;
     socket.leave(roomName);
-    console.log(`Client ${socket.id} left order room: ${roomName}`);
+    //console.log(`Client ${socket.id} left order room: ${roomName}`);
   });
   
   // Join restaurant-specific room
@@ -137,7 +137,7 @@ io.on('connection', (socket) => {
     
     const roomName = `restaurant_${restaurantId}`;
     socket.join(roomName);
-    console.log(`Client ${socket.id} joined room: ${roomName}`);
+    //console.log(`Client ${socket.id} joined room: ${roomName}`);
     
     // Notify room that a new client connected
     socket.to(roomName).emit('clientJoined', { socketId: socket.id });
@@ -149,7 +149,7 @@ io.on('connection', (socket) => {
     
     const roomName = `customer_${customerEmail}`;
     socket.join(roomName);
-    console.log(`Client ${socket.id} joined room: ${roomName}`);
+    //console.log(`Client ${socket.id} joined room: ${roomName}`);
     
     // Store customer info
     connectedClients.set(socket.id, { type: 'customer', email: customerEmail });
@@ -161,12 +161,12 @@ io.on('connection', (socket) => {
     
     const roomName = `restaurant_${restaurantId}`;
     socket.leave(roomName);
-    console.log(`Client ${socket.id} left room: ${roomName}`);
+    //console.log(`Client ${socket.id} left room: ${roomName}`);
   });
   
   // Restaurant events
   socket.on('reservationUpdated', (data) => {
-    console.log('Reservation updated event received:', data);
+    //console.log('Reservation updated event received:', data);
     
     // Broadcast to restaurant room
     if (data.restaurantId) {
@@ -183,7 +183,7 @@ io.on('connection', (socket) => {
   
   // Customer events
   socket.on('clientUpdatedReservation', (data) => {
-    console.log('Client updated reservation:', data);
+    //console.log('Client updated reservation:', data);
     
     // Broadcast to restaurant room
     if (data.restaurantId) {
@@ -193,7 +193,7 @@ io.on('connection', (socket) => {
   });
   
   socket.on('clientCancelledReservation', (data) => {
-    console.log('Client cancelled reservation:', data);
+    //console.log('Client cancelled reservation:', data);
     
     // Broadcast to restaurant room
     if (data.restaurantId) {
@@ -204,7 +204,7 @@ io.on('connection', (socket) => {
   
   // Handle table assignments
   socket.on('tableAssigned', (data) => {
-    console.log('Table assigned:', data);
+    //console.log('Table assigned:', data);
     
     // Broadcast to restaurant room
     if (data.restaurantId) {
@@ -221,7 +221,7 @@ io.on('connection', (socket) => {
   
   // Restaurant status updates
   socket.on('reservationStatusChanged', (data) => {
-    console.log('Reservation status changed:', data);
+    //console.log('Reservation status changed:', data);
     
     // Broadcast to restaurant room if applicable
     if (data.restaurantId) {
@@ -238,7 +238,7 @@ io.on('connection', (socket) => {
 
 socket.on('sendMessage', async (data) => {
   try {
-    console.log('Received chat message:', data);
+    //console.log('Received chat message:', data);
     const savedMessage = await ChatSystem.saveMessage(data);
     
     // Extract just the order ID
@@ -249,11 +249,11 @@ socket.on('sendMessage', async (data) => {
     
     // Broadcast to order room (except the sender)
     socket.to(orderRoom).emit('newMessage', savedMessage);
-    console.log(`Broadcast message to order room: ${orderRoom}`);
+    //console.log(`Broadcast message to order room: ${orderRoom}`);
     
     // Send back to sender as confirmation (will update their UI)
     socket.emit('messageSent', savedMessage);
-    /*console.log('Received chat message:', data);
+    /*//console.log('Received chat message:', data);
     const savedMessage = await ChatSystem.saveMessage(data);
     
     // Extract essential information from the message
@@ -274,7 +274,7 @@ socket.on('sendMessage', async (data) => {
       }
     }
     
-    console.log(`Broadcasting message to rooms: restaurant_${restaurantId}, customer_${customerEmail}, order_${orderId}`);
+    //console.log(`Broadcasting message to rooms: restaurant_${restaurantId}, customer_${customerEmail}, order_${orderId}`);
     
     // Send message to restaurant room
     if (restaurantId) {
@@ -307,7 +307,7 @@ socket.on('sendMessage', async (data) => {
   socket.on('markMessageRead', async (data) => {
     try {
       const { messageId } = data;
-      console.log(`Marking message as read: ${messageId}`);
+      //console.log(`Marking message as read: ${messageId}`);
       // Fixed: Use ChatSystem.markMessageAsRead instead of just markMessageAsRead
       const updatedMessage = await ChatSystem.markMessageAsRead(messageId);
       if (updatedMessage.sender_type === 'restaurant') {
@@ -363,7 +363,7 @@ socket.on('sendMessage', async (data) => {
   
   // Disconnect handling
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+    //console.log('Client disconnected:', socket.id);
     
     // Clean up client tracking
     connectedClients.delete(socket.id);
@@ -376,8 +376,8 @@ dotenv.config();
 
 // Start server
 /*http_server.listen(server_app_port, () => {
-    console.log('Server is up and running on port:', server_app_port);
-    console.log('WebSockets enabled on server');
+    //console.log('Server is up and running on port:', server_app_port);
+    //console.log('WebSockets enabled on server');
 });*/
 
 const port = process.env.CLIEN_PORT || 6000; 
@@ -390,8 +390,8 @@ http_server.listen(port, () => {
 /*aif (require.main === module) {
   const port = process.env.CLIEN_PORT || 6000; 
   http_server.listen(port, () => {
-    console.log('Server is up and running on port :', port);
-    console.log('WebSockets enabled on server');
+    //console.log('Server is up and running on port :', port);
+    //console.log('WebSockets enabled on server');
   });
 }*/
 

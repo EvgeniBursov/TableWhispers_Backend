@@ -2,9 +2,13 @@ const cron = require('node-cron');
 const { sendMail } = require('../MessageSystem/email_message');
 const UserOrder = require('../models/User_Order');
 
+const dotenv = require('dotenv');
+dotenv.config();
+BACKEND_API = process.env.BACKEND_API
+
 // Function to generate feedback link
 const generateFeedbackLink = (order) => {
-  return `http://localhost:5173/survey?order=${order._id}`;
+  return `${BACKEND_API}/survey?order=${order._id}`;
 };
 
 // Function to generate personalized email message
@@ -76,7 +80,7 @@ async function sendRestaurantFeedbackEmails() {
       order.client_id.email.trim() !== ''
     );
 
-    console.log(`Found ${validOrders.length} valid orders from yesterday to send feedback emails`);
+    //console.log(`Found ${validOrders.length} valid orders from yesterday to send feedback emails`);
 
     // Send emails to each valid customer
     const emailPromises = validOrders.map(async (order) => {
@@ -85,14 +89,14 @@ async function sendRestaurantFeedbackEmails() {
 
       try {
         await sendMail(email, feedbackMessage, 'feedback_request');
-        console.log(`Feedback email sent to ${email}`);
+        //console.log(`Feedback email sent to ${email}`);
       } catch (err) {
         console.error(`Failed to send feedback to ${email}:`, err);
       }
     });
 
     await Promise.all(emailPromises);
-    console.log(`Successfully sent ${emailPromises.length} feedback emails`);
+    //console.log(`Successfully sent ${emailPromises.length} feedback emails`);
   } catch (err) {
     console.error('Error sending feedback emails:', err);
   }
@@ -102,7 +106,7 @@ async function sendRestaurantFeedbackEmails() {
 function scheduleDailyFeedbackEmails() {
   ////sendRestaurantFeedbackEmails()
   cron.schedule('0 10 * * *', async () => {
-    console.log('Triggering scheduled feedback emails...');
+    //console.log('Triggering scheduled feedback emails...');
     await sendRestaurantFeedbackEmails();
   });
 }

@@ -15,7 +15,7 @@ dotenv.config()
 const sendTotpCodeForClientUser = async (req, res) => {
     const req_email = req.body.email;
     const req_user_type = req.body.user_type;
-    console.log("Start send Totp Code For Client User")
+    //console.log("Start send Totp Code For Client User")
     if(req_user_type === "Client"){
       if (!req_email.length) {
         return res.status(300).json({ 'error': 'Fill email' });
@@ -66,8 +66,8 @@ const verifyTotpCode = async(req,res) =>{
     const req_email = req.body.email 
     const req_code = req.body.totp_code;
     const req_user_type = req.body.user_type
-    console.log("Start verify Totp Code")
-    console.log(req_email,req_code,req_user_type)
+    //console.log("Start verify Totp Code")
+    //console.log(req_email,req_code,req_user_type)
     if(req_user_type === "Client"){
       try {
         const logUser = await ClientUser.findOne({ 'email': req_email });
@@ -75,11 +75,11 @@ const verifyTotpCode = async(req,res) =>{
           return res.status(400).json({ 'error': 'Incorrect user' });
         }
         const match_secret = authenticator.check(req_code,logUser.totpSecret)
-        console.log(match_secret)
+        //console.log(match_secret)
         if(!match_secret) {
           return res.status(400).json({ 'error': "incorrect token"})
         }else{
-          console.log("Correct totp")
+          //console.log("Correct totp")
           return res.status(200).json({ 'verifyClientUser': match_secret});
         } 
       } catch (err) {
@@ -94,11 +94,11 @@ const verifyTotpCode = async(req,res) =>{
           return res.status(400).json({ 'error': 'Incorrect user' });
         }
         const match_secret = authenticator.check(req_code,restaurantUser.totpSecret)
-        console.log(match_secret)
+        //console.log(match_secret)
         if(!match_secret) {
           return res.status(400).json({ 'error': "incorrect token"})
         }else{
-          console.log("Correct totp")
+          //console.log("Correct totp")
           return res.status(200).json({ 'verifyClientUser': match_secret});
         } 
       } catch (err) {
@@ -111,13 +111,13 @@ const verifyTotpCode = async(req,res) =>{
 }
 
 const changeClientPassword = async (req, res) => {
-  console.log(req.body)
+  //console.log(req.body)
   const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
   const { email: req_email, password: req_pass, confirm_password: req_confirm_pass } = req.body;
 
   try {
     const client_user = await ClientUser.findOne({ email: req_email });
-    console.log("Found user:", client_user);
+    //console.log("Found user:", client_user);
     
     if (!client_user) {
       return res.status(404).json({ error: 'User not found' });
@@ -139,7 +139,7 @@ const changeClientPassword = async (req, res) => {
     client_user.password = encryptedPwd;
     await client_user.save();
     const updatedUser = await ClientUser.findById(client_user._id);
-    console.log("Updated password:", updatedUser.password);
+    //console.log("Updated password:", updatedUser.password);
 
     return res.status(200).json({ message: 'Password updated successfully' });
 
@@ -182,7 +182,7 @@ const sendUserName = async (req, res) =>{
     }
     sendMail(req_email,user.user_name,'username')
   }catch(err){
-    console.log(err,"in catch")
+    //console.log(err,"in catch")
     return (res,err)
   }
 
@@ -200,7 +200,7 @@ const changeResPassword = async (req, res) => {
       return res.status(300).json({ 'error': 'Incorrect user' });
     }
 }catch(err){
-  console.log(err,"in catch")
+  //console.log(err,"in catch")
   return (res,err)
 }
 try{

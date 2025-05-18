@@ -11,7 +11,7 @@ const ResLoginUser = async (req, res) => {
   const req_pass = req.body.password;
   const req_phone_number = req.body.phone_number;
   
-  console.log(`Login attempt - email: ${req_email}, username: ${req_username}`);
+  //console.log(`Login attempt - email: ${req_email}, username: ${req_username}`);
   
   if (!req_email || !req_email.length || !req_pass || !req_pass.length || 
       !req_username || !req_username.length || !req_phone_number || !req_phone_number.length) {
@@ -47,7 +47,7 @@ const ResLoginUser = async (req, res) => {
       const token = authenticator.generate(logUser.totpSecret);
       sendMail(req_email, token, 'totp')
       
-      console.log(`Login successful - User: ${logUser.user_name}, Restaurant ID: ${logUser.restaurant_id}`);
+      //console.log(`Login successful - User: ${logUser.user_name}, Restaurant ID: ${logUser.restaurant_id}`);
       
       // Return user data with restaurant_id explicitly included at the top level
       return res.status(200).json({

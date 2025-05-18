@@ -20,7 +20,7 @@ const {
  * Includes all reservations for the day with customer information
  */
 const getRestaurantTables = async (req, res) => {
-  console.log("START getRestaurantTables FUNCTION");
+  //console.log("START getRestaurantTables FUNCTION");
   try {
     const restaurant_id = req.params.id;
     if (!restaurant_id) {
@@ -55,7 +55,7 @@ const getRestaurantTables = async (req, res) => {
       status: { $nin: ['Cancelled'] }
     }).populate('client_id', 'first_name last_name email phone_number');
     
-    console.log(`Found ${tables.length} tables and ${todayReservations.length} reservations for today`);
+    //console.log(`Found ${tables.length} tables and ${todayReservations.length} reservations for today`);
     
     // Transform data to include daily reservations per table
     const enhancedTables = tables.map(table => {
@@ -112,7 +112,7 @@ const getRestaurantTables = async (req, res) => {
  * Validates all required fields and emits events for real-time updates
  */
 const addTable = async (req, res) => {
-  console.log("START addTable FUNCTION");
+  //console.log("START addTable FUNCTION");
   try {
     const { 
       restaurant_id, 
@@ -206,7 +206,7 @@ const addTable = async (req, res) => {
  * Allows dragging and repositioning tables in UI
  */
 const updateTablePosition = async (req, res) => {
-  console.log("START updateTablePosition FUNCTION");
+  //console.log("START updateTablePosition FUNCTION");
   try {
     const table_id = req.params.table_id;
     const { x_position, y_position } = req.body;
@@ -262,7 +262,7 @@ const updateTablePosition = async (req, res) => {
  * Supports changing seats, shape, size and other properties
  */
 const updateTableDetails = async (req, res) => {
-  console.log("START updateTableDetails FUNCTION");
+  //console.log("START updateTableDetails FUNCTION");
   try {
     const table_id = req.params.table_id;
     const { 
@@ -367,7 +367,7 @@ const updateTableDetails = async (req, res) => {
  * Handles validation, conflicting reservations, and socket notifications
  */
 const assignTableToReservation = async (req, res) => {
-  console.log("START assignTableToReservation FUNCTION");
+  //console.log("START assignTableToReservation FUNCTION");
   try {
     const { table_id, reservation_id } = req.body;
     
@@ -506,7 +506,7 @@ const assignTableToReservation = async (req, res) => {
  * Won't delete tables with active or upcoming reservations
  */
 const deleteTable = async (req, res) => {
-  console.log("START deleteTable FUNCTION");
+  //console.log("START deleteTable FUNCTION");
   try {
     const table_id = req.params.table_id;
     
@@ -579,7 +579,7 @@ const deleteTable = async (req, res) => {
  * Updates availability for reservations
  */
 const setTableStatus = async (req, res) => {
-  console.log("START setTableStatus FUNCTION");
+  //console.log("START setTableStatus FUNCTION");
   try {
     const table_id = req.params.table_id;
     const { status } = req.body;
@@ -640,7 +640,7 @@ const setTableStatus = async (req, res) => {
  * Calculate duration in minutes between two times
  */
 const getDurationInMinutes = (start, end) => {
-  console.log("START getDurationInMinutes FUNCTION");
+  //console.log("START getDurationInMinutes FUNCTION");
   if (!start || !end) return 0;
   return Math.floor((new Date(end) - new Date(start)) / (1000 * 60));
 };
@@ -650,7 +650,7 @@ const getDurationInMinutes = (start, end) => {
  * Used to verify a table is free when making a reservation
  */
 const checkTableAvailability = async (tableId, startTime, endTime, excludeReservationId = null) => {
-  console.log("START checkTableAvailability FUNCTION");
+  //console.log("START checkTableAvailability FUNCTION");
   try {
     const table = await Table.findById(tableId);
     if (!table) return false;
@@ -689,7 +689,7 @@ const checkTableAvailability = async (tableId, startTime, endTime, excludeReserv
  * Used for the table management view with real-time support
  */
 const getFloorLayout = async (req, res) => {
-  console.log("START getFloorLayout FUNCTION");
+  //console.log("START getFloorLayout FUNCTION");
   try {
     const restaurant_id = req.params.id;
     const { date } = req.query;
@@ -709,7 +709,7 @@ const getFloorLayout = async (req, res) => {
     const endOfDay = new Date(filterDate);
     endOfDay.setHours(23, 59, 59, 999);
     
-    console.log(`Getting floor layout for date: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
+    //console.log(`Getting floor layout for date: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
     
     // Get all tables for the restaurant
     const tables = await Table.find({ restaurant_id });
@@ -721,7 +721,7 @@ const getFloorLayout = async (req, res) => {
       status: { $nin: ['Cancelled'] }
     });
     
-    console.log(`Found ${tables.length} tables and ${todaysReservations.length} reservations`);
+    //console.log(`Found ${tables.length} tables and ${todaysReservations.length} reservations`);
     
     // Get client information for all reservations
     const clientIds = todaysReservations
@@ -871,7 +871,7 @@ const getFloorLayout = async (req, res) => {
  * Used when selecting a table to view its reservations
  */
 const getTableReservations = async (req, res) => {
-  console.log("START getTableReservations FUNCTION");
+  //console.log("START getTableReservations FUNCTION");
   try {
     const table_id = req.params.table_id;
     const { date } = req.query;
@@ -947,7 +947,7 @@ const getTableReservations = async (req, res) => {
  * Allows selecting a specific table when making a reservation
  */
 const createTableReservation = async (req, res) => {
-  console.log("START createTableReservation FUNCTION");
+  //console.log("START createTableReservation FUNCTION");
   try {
     const { 
       table_id, 

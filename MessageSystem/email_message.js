@@ -6,7 +6,7 @@ dotenv.config()
 
 
 authenticator.options = { step: 360 };
-console.log("Current time step:", authenticator.options.step);
+//console.log("Current time step:", authenticator.options.step);
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -58,7 +58,7 @@ async function sendMail(mail, token, scenario) {
 
   try {
       await transporter.sendMail(mailOptions);
-      console.log("Email sent successfully");
+      //console.log("Email sent successfully");
   } catch (error) {
       console.error("Error sending email:", error);
   }

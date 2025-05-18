@@ -12,7 +12,7 @@ const get_chat_history = async (req, res) => {
         const { orderId, customerEmail } = req.params;
         const { page = 1, limit = 50 } = req.query;
         
-        console.log(`Getting chat history for order ${orderId} and customer ${customerEmail}`);
+        //console.log(`Getting chat history for order ${orderId} and customer ${customerEmail}`);
         
         // Validate parameters
         if (!orderId || !customerEmail) {
@@ -92,7 +92,7 @@ const get_restaurant_chats = async (req, res) => {
     try {
         const { restaurantId } = req.params;
         
-        console.log(`Getting all chats for restaurant ${restaurantId}`);
+        //console.log(`Getting all chats for restaurant ${restaurantId}`);
         
         // Validate parameter
         if (!restaurantId) {
@@ -185,7 +185,7 @@ const get_restaurant_chats = async (req, res) => {
                     customerInfo = await ClientUser.findOne({ email: chat.customerEmail })
                         .select('first_name last_name email phone_number profileImage');
                 } catch (err) {
-                    console.log(`No customer found for email ${chat.customerEmail}`);
+                    //console.log(`No customer found for email ${chat.customerEmail}`);
                 }
                 
                 // Get order details
@@ -199,7 +199,7 @@ const get_restaurant_chats = async (req, res) => {
                     const restaurantId = orderInfo?.restaurant?._id || null;
                     
                 } catch (err) {
-                    console.log(`No order found with ID ${chat.order_id}`);
+                    //console.log(`No order found with ID ${chat.order_id}`);
                 }
                 
                 return {
@@ -253,7 +253,7 @@ const get_customer_chats = async (req, res) => {
     try {
         const { customerEmail } = req.params;
         
-        console.log(`Getting all chats for customer ${customerEmail}`);
+        //console.log(`Getting all chats for customer ${customerEmail}`);
         
         // Validate parameter
         if (!customerEmail) {
@@ -357,7 +357,7 @@ const get_customer_chats = async (req, res) => {
                         restaurantInfo = orderInfo.restaurant;
                     }
                 } catch (err) {
-                    console.log(`Error retrieving order/restaurant info: ${err.message}`);
+                    //console.log(`Error retrieving order/restaurant info: ${err.message}`);
                 }
                 
                 return {
@@ -567,7 +567,7 @@ const mark_message_as_read = async (req, res) => {
         // Handle both REST API and Socket.IO calls
         const messageId = req.params?.messageId || req;
         
-        console.log(`Marking message as read: ${messageId}`);
+        //console.log(`Marking message as read: ${messageId}`);
         
         if (!messageId) {
             const errorMsg = 'Message ID is required';
@@ -636,7 +636,7 @@ const delete_chat = async (req, res) => {
     try {
         const { orderId, customerEmail } = req.params;
         
-        console.log(`Deleting chat for order ${orderId} with customer ${customerEmail}`);
+        //console.log(`Deleting chat for order ${orderId} with customer ${customerEmail}`);
         
         // Validate parameters
         if (!orderId || !customerEmail) {
@@ -686,7 +686,7 @@ const get_unread_count = async (req, res) => {
     try {
         const { type, id } = req.params;
         
-        console.log(`Getting unread count for ${type} ${id}`);
+        //console.log(`Getting unread count for ${type} ${id}`);
         
         // Validate parameters
         if (!type || !id) {
