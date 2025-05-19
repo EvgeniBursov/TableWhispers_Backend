@@ -2,15 +2,18 @@ const cron = require('node-cron');
 const { sendMail } = require('../MessageSystem/email_message');
 const UserOrder = require('../models/User_Order');
 
+const dotenv = require('dotenv');
+dotenv.config();
+FRONT_API = process.env.FRONT_API
+
 // Function to generate feedback link
 const generateFeedbackLink = (order) => {
-  return `http://localhost:5173/survey?order=${order._id}`;
+  return `${FRONT_API}/survey?order=${order._id}`;
 };
 
 // Function to generate personalized email message
 function generateFeedbackMessage(order) {
   const link = generateFeedbackLink(order);
-  
   // Check how to access client and restaurant data in your order model
   // These fields might have different names in your schema
   const clientName = order.client_id ? (order.client_id.firstName || 'Valued Customer') : 'Valued Customer';
@@ -76,7 +79,7 @@ async function sendRestaurantFeedbackEmails() {
       order.client_id.email.trim() !== ''
     );
 
-    console.log(`Found ${validOrders.length} valid orders from yesterday to send feedback emails`);
+    //console.log(`Found ${validOrders.length} valid orders from yesterday to send feedback emails`);
 
     // Send emails to each valid customer
     const emailPromises = validOrders.map(async (order) => {
@@ -85,14 +88,14 @@ async function sendRestaurantFeedbackEmails() {
 
       try {
         await sendMail(email, feedbackMessage, 'feedback_request');
-        console.log(`Feedback email sent to ${email}`);
+        //console.log(`Feedback email sent to ${email}`);
       } catch (err) {
         console.error(`Failed to send feedback to ${email}:`, err);
       }
     });
 
     await Promise.all(emailPromises);
-    console.log(`Successfully sent ${emailPromises.length} feedback emails`);
+    //console.log(`Successfully sent ${emailPromises.length} feedback emails`);
   } catch (err) {
     console.error('Error sending feedback emails:', err);
   }
@@ -100,7 +103,7 @@ async function sendRestaurantFeedbackEmails() {
 
 // Schedule daily feedback emails
 function scheduleDailyFeedbackEmails() {
-  ////sendRestaurantFeedbackEmails()
+  //sendRestaurantFeedbackEmails()
   cron.schedule('0 10 * * *', async () => {
     console.log('Triggering scheduled feedback emails...');
     await sendRestaurantFeedbackEmails();

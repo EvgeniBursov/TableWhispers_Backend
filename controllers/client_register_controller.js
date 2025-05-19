@@ -5,7 +5,7 @@ const { createToken } = require('./auth');
 
 const createNewUser = async (req, res) => {
   //need add checking correct pass number age ...
-  console.log("Start Create New User")
+  //console.log("Start Create New User")
   var req_email = req.body.email;
   var req_first_name = req.body.first_name;
   var req_last_name = req.body.last_name;
@@ -40,16 +40,16 @@ const createNewUser = async (req, res) => {
   }
   try {
     const user = await ClientUser.findOne({ 'email': req_email })
-    console.log(user, "in email")
+    //console.log(user, "in email")
     if (user != null) {
       return res.status(400).json({ error: 'the user is exist' });
       //return res.error.json({ 'alert': 'the user is exist' });
     }
   } catch (err) {
-    console.log(err, "in catch")
+    //console.log(err, "in catch")
     return (res, err)
   }
-  console.log("after email")
+  //console.log("after email")
   try {
     const salt = await bcrypt.genSalt(10)
     const encryptedPwd = await bcrypt.hash(req_pass, salt)
@@ -62,7 +62,7 @@ const createNewUser = async (req, res) => {
       phone_number: req_phone_number,
       password: encryptedPwd,
     })
-    console.log("after data")
+    //console.log("after data")
     const new_user = await data.save()
     const token = createToken(new_user._id)
     res.status(200).send({"user":new_user,"token":token});

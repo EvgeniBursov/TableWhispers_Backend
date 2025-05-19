@@ -16,7 +16,7 @@ const createNewResUser = async (req, res) => {
   var req_confirm_pass = req.body.confirm_password;
   var req_city = req.body.city;
   var req_restaurant_name = req.body.restaurant_name;
-  console.log(req_email,req_first_name,req_last_name,req_age,req_phone_number,req_pass,req_confirm_pass,req_city,req_restaurant_name)
+  //console.log(req_email,req_first_name,req_last_name,req_age,req_phone_number,req_pass,req_confirm_pass,req_city,req_restaurant_name)
   /*const check = validResRegister(req_email,req_first_name,req_last_name,
     req_age,req_phone_number,req_pass,req_confirm_pass,req_city,req_restaurant_name)
 */
@@ -40,7 +40,7 @@ try{
     username = generator.generateUsername().substring(0, 6);
   }
 
-  console.log("Generated Username:", username);
+  //console.log("Generated Username:", username);
 
   const data = new ResClientUser({
     user_type: "Restaurant",

@@ -24,7 +24,7 @@ const emitTableAdded = (io, restaurantId, table) => {
   // Also emit to the generic channel for any admin interfaces
   io.emit('tableAdded', event);
   
-  console.log('WebSocket: Emitted tableAdded event to restaurant room:', restaurantId);
+  //console.log('WebSocket: Emitted tableAdded event to restaurant room:', restaurantId);
 };
 
 // Function to emit table position updated event
@@ -44,7 +44,7 @@ const emitTablePositionUpdated = (io, restaurantId, table) => {
   // Target the specific restaurant room
   io.to(`restaurant_${restaurantId}`).emit('tablePositionUpdated', event);
   
-  console.log('WebSocket: Emitted tablePositionUpdated event to restaurant room:', restaurantId);
+  //console.log('WebSocket: Emitted tablePositionUpdated event to restaurant room:', restaurantId);
 };
 
 // Function to emit table details updated event
@@ -62,7 +62,7 @@ const emitTableDetailsUpdated = (io, restaurantId, table) => {
   // Target the specific restaurant room
   io.to(`restaurant_${restaurantId}`).emit('tableDetailsUpdated', event);
   
-  console.log('WebSocket: Emitted tableDetailsUpdated event to restaurant room:', restaurantId);
+  //console.log('WebSocket: Emitted tableDetailsUpdated event to restaurant room:', restaurantId);
 };
 
 // Function to emit table deleted event
@@ -80,7 +80,7 @@ const emitTableDeleted = (io, restaurantId, tableId, tableNumber) => {
   // Target the specific restaurant room
   io.to(`restaurant_${restaurantId}`).emit('tableDeleted', event);
   
-  console.log('WebSocket: Emitted tableDeleted event to restaurant room:', restaurantId);
+  //console.log('WebSocket: Emitted tableDeleted event to restaurant room:', restaurantId);
 };
 
 // Function to emit reservation assigned to table event
@@ -146,10 +146,10 @@ const emitReservationAssigned = (io, restaurantId, table, reservation) => {
       timestamp: new Date()
     });
     
-    console.log('WebSocket: Emitted tableAssigned event to customer:', customerEmail);
+    //console.log('WebSocket: Emitted tableAssigned event to customer:', customerEmail);
   }
   
-  console.log('WebSocket: Emitted reservationAssigned event to restaurant room:', restaurantId);
+  //console.log('WebSocket: Emitted reservationAssigned event to restaurant room:', restaurantId);
 };
 
 // Function to emit table status updated event
@@ -168,7 +168,7 @@ const emitTableStatusUpdated = (io, restaurantId, table) => {
   // Target the specific restaurant room
   io.to(`restaurant_${restaurantId}`).emit('tableStatusUpdated', event);
   
-  console.log('WebSocket: Emitted tableStatusUpdated event to restaurant room:', restaurantId);
+  //console.log('WebSocket: Emitted tableStatusUpdated event to restaurant room:', restaurantId);
   
   // If table has a current reservation with customer email, notify them too
   if (table.current_reservation && table.current_reservation.client_id) {
@@ -202,7 +202,7 @@ const emitFloorLayoutUpdated = (io, restaurantId) => {
   // Target the specific restaurant room
   io.to(`restaurant_${restaurantId}`).emit('floorLayoutUpdated', event);
   
-  console.log('WebSocket: Emitted floorLayoutUpdated event to restaurant room:', restaurantId);
+  //console.log('WebSocket: Emitted floorLayoutUpdated event to restaurant room:', restaurantId);
 };
 
 // Function to emit table reservation time conflict event (when a time slot becomes unavailable)
@@ -224,7 +224,7 @@ const emitTableTimeConflict = (io, restaurantId, table, conflictingReservation) 
   // Target the specific restaurant room
   io.to(`restaurant_${restaurantId}`).emit('tableTimeConflict', event);
   
-  console.log('WebSocket: Emitted tableTimeConflict event to restaurant room:', restaurantId);
+  //console.log('WebSocket: Emitted tableTimeConflict event to restaurant room:', restaurantId);
 };
 
 // Function to emit table availability changed event (for customers browsing for tables)
@@ -243,7 +243,7 @@ const emitTableAvailabilityChanged = (io, restaurantId, date, timeSlot, availabl
   // Broadcast to all clients viewing this restaurant's availability
   io.to(`restaurant_${restaurantId}`).emit('tableAvailabilityChanged', event);
   
-  console.log('WebSocket: Emitted tableAvailabilityChanged event for restaurant:', restaurantId);
+  //console.log('WebSocket: Emitted tableAvailabilityChanged event for restaurant:', restaurantId);
 };
 
 // Export all event emitter functions

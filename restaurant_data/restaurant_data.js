@@ -15,7 +15,7 @@ const {sendMail} = require('../MessageSystem/email_message');
 const all_Restaurants_Data = async (req, res) => {
   const restaurantId = req.params.id; 
   if (restaurantId) {
-    console.log("Start Restaurant Data for ID: ", restaurantId);
+    ////console.log("Start Restaurant Data for ID: ", restaurantId);
     try {
       const restaurantData = await restaurants.findById(restaurantId)
       .populate({
@@ -43,7 +43,7 @@ const all_Restaurants_Data = async (req, res) => {
     }
   } else {
     try {
-      console.log("Fetching all Restaurants Data");
+      ////console.log("Fetching all Restaurants Data");
       const allRestaurantsData = await restaurants.find();
       res.status(200).json(allRestaurantsData);
     } catch (error) {
@@ -54,7 +54,7 @@ const all_Restaurants_Data = async (req, res) => {
 };
 
 const Restaurants_Reservation = async (req, res) => {
-  console.log("Start Restaurants_Reservation");
+  ////console.log("Start Restaurants_Reservation");
   const restaurantId = req.params.id;
   if (!restaurantId) {
     return res.status(400).json({ error: 'Restaurant ID is undefined' });
@@ -135,7 +135,6 @@ const Restaurants_Reservation = async (req, res) => {
           };
         }
       }
-      
       processedReservations.push({
         id: reservation._id,
         orderDetails: {
@@ -143,7 +142,8 @@ const Restaurants_Reservation = async (req, res) => {
           status: reservation.status,
           orderDate: reservation.orderDate,
           startTime: reservation.start_time,
-          endTime: reservation.end_time
+          endTime: reservation.end_time,
+          table: reservation.tableNumber
         },
         customer: customerInfo
       });
@@ -164,7 +164,7 @@ const Restaurants_Reservation = async (req, res) => {
       reservations: processedReservations
     };
     
-    console.log("END of Restaurants_Reservation");
+    ////console.log("END of Restaurants_Reservation");
     res.status(200).json(formattedResponse);
 
   } catch (error) {
@@ -180,7 +180,7 @@ const Restaurants_Reservation = async (req, res) => {
 const add_New_Reviews = async (req, res) =>{
   try{
 
-    console.log("Start add New Reviews");
+    ////console.log("Start add New Reviews");
     const req_restaurant_Id = req.body.restaurant_Id;
     const user_email = req.body.user_email;
     const review_string = req.body.review;
@@ -203,10 +203,10 @@ const add_New_Reviews = async (req, res) =>{
     });
   
     const saved_Review = await new_Review.save();
-    console.log("saved_Review",saved_Review);
+    //////console.log("saved_Review",saved_Review);
   
     const restaurant = await restaurants.findById(req_restaurant_Id);
-    console.log("restaurant",restaurant);
+    ////console.log("restaurant",restaurant);
     if (!restaurant) {
       return res.status(404).json({
         success: false,
@@ -231,7 +231,7 @@ const add_New_Reviews = async (req, res) =>{
       restaurant.rating = parseFloat((totalRating / validReviewCount).toFixed(1));
       restaurant.number_of_rating = validReviewCount;
     }
-    console.log("****************************************************",totalRating,validReviewCount)
+    //////console.log("****************************************************",totalRating,validReviewCount)
   }
     await restaurant.save()
     res.status(201).json({
@@ -258,16 +258,16 @@ const add_New_Reviews = async (req, res) =>{
  * @returns {Object} - Availability information
  */
 const check_Availability = async (restaurantId, dateCheck, time, guests) => {
-  console.log("=== Start check_Availability ===");
-  console.log("Parameters:", { restaurantId, dateCheck, time, guests });
+  ////console.log("=== Start check_Availability ===");
+  //////console.log("Parameters:", { restaurantId, dateCheck, time, guests });
   
   try {
     // Find restaurant data
     const restaurantData = await restaurants.findById(restaurantId);
-    console.log("Restaurant found:", !!restaurantData);
+  //  ////console.log("Restaurant found:", !!restaurantData);
 
     if (!restaurantData) {
-      console.log("Restaurant not found");
+      ////console.log("Restaurant not found");
       return {
         success: false,
         message: 'Restaurant not found'
@@ -276,7 +276,7 @@ const check_Availability = async (restaurantId, dateCheck, time, guests) => {
 
     // Check if restaurant has tables configured
     if (!restaurantData.tables || restaurantData.tables.length === 0) {
-      console.log("No tables configured for restaurant");
+      ////console.log("No tables configured for restaurant");
       return {
         success: false,
         message: 'No tables configured for this restaurant',
@@ -286,12 +286,12 @@ const check_Availability = async (restaurantId, dateCheck, time, guests) => {
     
     // Extract day of week from the date
     const dayOfWeek = new Date(dateCheck).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    console.log("Day of week:", dayOfWeek);
+    ////console.log("Day of week:", dayOfWeek);
     
     // Check if restaurant is open on this day
     if (!restaurantData.open_time || !restaurantData.open_time[dayOfWeek] || 
         restaurantData.open_time[dayOfWeek].open === 'Closed') {
-      console.log("Restaurant is closed on this day");
+      ////console.log("Restaurant is closed on this day");
       return {
         success: false,
         message: 'Restaurant is closed on this day',
@@ -307,8 +307,8 @@ const check_Availability = async (restaurantId, dateCheck, time, guests) => {
     const endTime = new Date(reservationDate);
     endTime.setMinutes(endTime.getMinutes() + 90); 
     
-    console.log("Reservation start time:", reservationDate);
-    console.log("Reservation end time:", endTime);
+    ////console.log("Reservation start time:", reservationDate);
+    ////console.log("Reservation end time:", endTime);
     
     // Set up the day boundaries for query
     const startOfDay = new Date(dateCheck);
@@ -317,7 +317,7 @@ const check_Availability = async (restaurantId, dateCheck, time, guests) => {
     const endOfDay = new Date(dateCheck);
     endOfDay.setHours(23, 59, 59, 999);
     
-    console.log("Checking reservations between:", startOfDay, "and", endOfDay);
+    ////console.log("Checking reservations between:", startOfDay, "and", endOfDay);
 
     // Get all existing reservations for this day that are not cancelled
     const existingReservations = await UserOrder.find({
@@ -326,7 +326,7 @@ const check_Availability = async (restaurantId, dateCheck, time, guests) => {
       status: { $ne: 'Cancelled' }
     });
     
-    console.log("Found existing reservations:", existingReservations.length);
+    ////console.log("Found existing reservations:", existingReservations.length);
 
     // Filter tables that can accommodate the guest count
     const suitableTables = restaurantData.tables.filter(table => {
@@ -338,7 +338,7 @@ const check_Availability = async (restaurantId, dateCheck, time, guests) => {
       return true;
     });
     
-    console.log("Suitable tables for party size:", suitableTables.length);
+    ////console.log("Suitable tables for party size:", suitableTables.length);
 
     // Count how many suitable tables are available at the requested time
     let availableTablesCount = suitableTables.length;
@@ -356,11 +356,11 @@ const check_Availability = async (restaurantId, dateCheck, time, guests) => {
       ) {
         // This reservation overlaps, so one table is not available
         availableTablesCount--;
-        console.log("Found overlapping reservation, reducing available tables");
+        ////console.log("Found overlapping reservation, reducing available tables");
       }
     });
     
-    console.log("Final available tables count:", availableTablesCount);
+    ////console.log("Final available tables count:", availableTablesCount);
 
     const result = {
       success: true,
@@ -371,8 +371,8 @@ const check_Availability = async (restaurantId, dateCheck, time, guests) => {
       isAvailable: availableTablesCount > 0
     };
     
-    console.log("Availability check result:", result);
-    console.log("=== End check_Availability ===");
+    ////console.log("Availability check result:", result);
+    ////console.log("=== End check_Availability ===");
     
     return result;
   } catch (error) {
@@ -390,16 +390,11 @@ const check_Availability = async (restaurantId, dateCheck, time, guests) => {
  * @param {Object} res - Response object
  */
 const get_Available_Times = async (req, res) => {
-  console.log("=== Start get_Available_Times ===");
-  
   try {
     const restaurantId = req.params.id;
     const { date, partySize = 2 } = req.query;
     
-    console.log("Parameters:", { restaurantId, date, partySize });
-    
     if (!date) {
-      console.log("Missing date parameter");
       return res.status(400).json({ 
         success: false, 
         message: 'Date parameter is required' 
@@ -408,10 +403,8 @@ const get_Available_Times = async (req, res) => {
     
     // Find the restaurant
     const restaurant = await restaurants.findById(restaurantId);
-    console.log("Restaurant found:", !!restaurant);
     
     if (!restaurant) {
-      console.log("Restaurant not found");
       return res.status(404).json({ 
         success: false, 
         message: 'Restaurant not found' 
@@ -420,29 +413,34 @@ const get_Available_Times = async (req, res) => {
 
     // Check if restaurant is open on the selected day
     const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    console.log("Day of week:", dayOfWeek);
     
-    if (!restaurant.open_time || !restaurant.open_time[dayOfWeek] || 
+    if (!restaurant.open_time || 
+        !restaurant.open_time[dayOfWeek] || 
+        !restaurant.open_time[dayOfWeek].open || 
+        !restaurant.open_time[dayOfWeek].close || 
         restaurant.open_time[dayOfWeek].open === 'Closed') {
-      console.log("Restaurant is closed on this day");
       return res.status(200).json({ 
         success: true, 
         availableTimes: [],
-        message: 'Restaurant is closed on this day'
+        message: 'Restaurant is closed on this day or has invalid opening hours'
       });
     }
     
-    // Get opening hours for the selected day
-    const openTime = restaurant.open_time[dayOfWeek].open;
-    const closeTime = restaurant.open_time[dayOfWeek].close;
-    console.log("Restaurant hours:", openTime, "to", closeTime);
+    const openTime = String(restaurant.open_time[dayOfWeek].open);
+    const closeTime = String(restaurant.open_time[dayOfWeek].close);
+  
+    if (!openTime || !closeTime || openTime === 'undefined' || closeTime === 'undefined') {
+      return res.status(200).json({
+        success: true,
+        availableTimes: [],
+        message: 'Restaurant has invalid opening hours'
+      });
+    }
     
     // Generate time slots every 30 minutes between opening and closing time
     const timeSlots = generateTimeSlots(openTime, closeTime);
-    console.log("Generated time slots:", timeSlots.length);
     
     // Check availability for each time slot
-    console.log("Checking availability for each time slot...");
     const availabilityPromises = timeSlots.map(async (timeSlot) => {
       const availability = await check_Availability(
         restaurantId,
@@ -462,7 +460,6 @@ const get_Available_Times = async (req, res) => {
     
     // Filter only times with available tables
     const availableTimes = availabilityResults.filter(slot => slot.availableTables > 0);
-    console.log("Available times found:", availableTimes.length);
     
     const response = {
       success: true,
@@ -470,7 +467,6 @@ const get_Available_Times = async (req, res) => {
       totalTimeSlots: timeSlots.length
     };
     
-    console.log("=== End get_Available_Times ===");
     return res.status(200).json(response);
     
   } catch (error) {
@@ -488,16 +484,16 @@ const get_Available_Times = async (req, res) => {
  * @param {Object} res - Response object
  */
 const get_Available_Tables = async (req, res) => {
-  console.log("=== Start get_Available_Tables ===");
+  ////console.log("=== Start get_Available_Tables ===");
   
   try {
     const restaurantId = req.params.id;
     const { date, time, guests = 2 } = req.query;
     
-    console.log("Parameters:", { restaurantId, date, time, guests });
+    ////console.log("Parameters:", { restaurantId, date, time, guests });
     
     if (!date || !time) {
-      console.log("Missing date or time parameter");
+      ////console.log("Missing date or time parameter");
       return res.status(400).json({ 
         success: false, 
         message: 'Date and time parameters are required' 
@@ -506,10 +502,10 @@ const get_Available_Tables = async (req, res) => {
     
     // Find the restaurant
     const restaurant = await restaurants.findById(restaurantId).populate('tables');
-    console.log("Restaurant found:", !!restaurant);
+    ////console.log("Restaurant found:", !!restaurant);
     
     if (!restaurant) {
-      console.log("Restaurant not found");
+      ////console.log("Restaurant not found");
       return res.status(404).json({ 
         success: false, 
         message: 'Restaurant not found' 
@@ -518,11 +514,11 @@ const get_Available_Tables = async (req, res) => {
 
     // Check if restaurant is open on the selected day
     const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    console.log("Day of week:", dayOfWeek);
+    ////console.log("Day of week:", dayOfWeek);
     
     if (!restaurant.open_time || !restaurant.open_time[dayOfWeek] || 
         restaurant.open_time[dayOfWeek].open === 'Closed') {
-      console.log("Restaurant is closed on this day");
+      ////console.log("Restaurant is closed on this day");
       return res.status(200).json({ 
         success: false, 
         message: 'Restaurant is closed on this day',
@@ -605,14 +601,14 @@ const get_Available_Tables = async (req, res) => {
       section: table.section
     }));
     
-    console.log(`Returning ${tablesData.length} available tables`);
+    ////console.log(`Returning ${tablesData.length} available tables`);
     
     res.status(200).json({
       success: true,
       tables: tablesData
     });
     
-    console.log("=== End get_Available_Tables ===");
+    ////console.log("=== End get_Available_Tables ===");
   } catch (error) {
     console.error("Error getting available tables:", error);
     return res.status(500).json({
@@ -622,6 +618,14 @@ const get_Available_Tables = async (req, res) => {
   }
 };
 
+/**
+ * Find the best available table for a reservation
+ * @param {string} restaurantId - The ID of the restaurant
+ * @param {Date} reservationDate - Start time of the reservation
+ * @param {Date} endTime - End time of the reservation
+ * @param {number} guests - Number of guests
+ * @returns {Promise<Object|null>} - The best available table or null if none found
+ */
 const findBestTable = async (restaurantId, reservationDate, endTime, guests) => {
   try {
     // Get the restaurant with its tables
@@ -711,18 +715,18 @@ const findBestTable = async (restaurantId, reservationDate, endTime, guests) => 
  * @param {Object} res - Response object
  */
 const create_Reservation = async (req, res) => {
-  console.log("=== Start create_Reservation ===");
+  console.log("=== Start create_Reservation ===", req.body);
   const restaurantId = req.body.restaurant_Id;
   
   // Get table information if provided
   const requestedTableId = req.body.tableId;
   const requestedTableNumber = req.body.tableNumber;
+  
   // Get email info
   let userEmail = req.body.user_email;
   let phone = null;
   let fullName = null;
-  
-  if (!userEmail && req.body.guestInfo && req.body.guestInfo.user_email) {
+  if (req.body.guestInfo) {
     userEmail = req.body.guestInfo.user_email;
     phone = req.body.guestInfo.phone_number;
     fullName = req.body.guestInfo.full_name;
@@ -762,19 +766,11 @@ const create_Reservation = async (req, res) => {
     // Find appropriate table
     let selectedTable = null;
     
-    // If a specific table was requested
-    if (requestedTableId || requestedTableNumber) {
-      // First try to find by ID
-      if (requestedTableId) {
-        selectedTable = await Table.findById(requestedTableId);
-      } 
-      // Then try by table number
-      else if (requestedTableNumber) {
-        selectedTable = await Table.findOne({ 
-          restaurant_id: restaurantId,
-          table_number: requestedTableNumber
-        });
-      }
+    // Check if a specific table was requested (ensure non-null values)
+    if (requestedTableId && requestedTableId !== "null" && requestedTableId !== null) {
+      // Look up by ID
+      //console.log(`Looking for table by ID: ${requestedTableId}`);
+      selectedTable = await Table.findById(requestedTableId);
       
       // Verify the table exists and is suitable
       if (!selectedTable) {
@@ -806,8 +802,49 @@ const create_Reservation = async (req, res) => {
         });
       }
     } 
-    // Otherwise find the best available table
+    // Check if table number was provided
+    else if (requestedTableNumber && requestedTableNumber !== "null" && requestedTableNumber !== null) {
+      // Look up by table number
+      //console.log(`Looking for table by number: ${requestedTableNumber}`);
+      selectedTable = await Table.findOne({ 
+        restaurant_id: restaurantId,
+        table_number: requestedTableNumber
+      });
+      
+      // Verify the table exists and is suitable
+      if (!selectedTable) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Requested table not found' 
+        });
+      }
+      
+      // Verify table is big enough
+      if (selectedTable.seats < guests) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Selected table is too small for your party size' 
+        });
+      }
+      
+      // Verify table is available
+      const isAvailable = await checkTableAvailability(
+        selectedTable._id,
+        reservationDate,
+        endTime
+      );
+      
+      if (!isAvailable) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Selected table is not available for the requested time' 
+        });
+      }
+    }
+    // Otherwise find the best available table automatically
     else {
+      //console.log("No specific table requested, finding best table automatically");
+      
       selectedTable = await findBestTable(
         restaurantId,
         reservationDate,
@@ -821,6 +858,8 @@ const create_Reservation = async (req, res) => {
           message: 'No tables available for the requested time and party size' 
         });
       }
+      
+      //console.log(`Auto-selected table ${selectedTable.table_number} with ${selectedTable.seats} seats`);
     }
 
     // Identify the user (registered or guest)
@@ -832,14 +871,14 @@ const create_Reservation = async (req, res) => {
     let user = await ClientUser.findOne({ 'email': userEmail });
     
     if (user) {
-      console.log("Is Client User",user)
+      //console.log("Registered user found:", userEmail);
       userId = user._id;
       clientName = user.first_name;
       clientType = "ClientUser";
     } else {
       const existingGuest = await ClientGuest.findOne({ 'email': userEmail });
       if (existingGuest) {
-        console.log("Is Existing Guest User",existingGuest)
+        //console.log("Existing guest user found:", userEmail);
         userId = existingGuest._id;
         clientName = existingGuest.first_name;
         clientType = "ClientGuest";
@@ -861,6 +900,7 @@ const create_Reservation = async (req, res) => {
           return res.status(400).json({ success: false, message: 'Full name is required for new guest' });
         }
         
+        //console.log("Creating new guest user:", userEmail);
         const nameParts = fullName.split(' ');
         const firstName = nameParts[0];
         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
@@ -878,6 +918,8 @@ const create_Reservation = async (req, res) => {
         clientType = "ClientGuest";
       }
     }
+    
+    // Double-check that the table is still available before finalizing
     const verifyTableAvailable = await checkTableAvailability(
       selectedTable._id,
       reservationDate,
@@ -906,6 +948,7 @@ const create_Reservation = async (req, res) => {
 
     // Save the reservation
     const savedOrder = await newOrder.save();
+    //console.log(`Reservation created for table ${selectedTable.table_number} at ${reservationDate}`);
     
     // Update restaurant's reservation list
     await restaurants.findByIdAndUpdate(
@@ -1006,6 +1049,14 @@ Table Whispers`;
   }
 };
 
+
+/**
+ * Check if a specific table is available for the given time range
+ * @param {string} tableId - The ID of the table
+ * @param {Date} startTime - Reservation start time
+ * @param {Date} endTime - Reservation end time
+ * @returns {Promise<boolean>} - Whether the table is available
+ */
 const checkTableAvailability = async (tableId, startTime, endTime) => {
   try {
     // Find reservations that overlap with this time period using consistent formula
@@ -1053,7 +1104,7 @@ const checkTableAvailability = async (tableId, startTime, endTime) => {
  * @returns {Date} - Reservation date
  */
 const calculateReservationDate = (day, time) => {
-  console.log("Calculating reservation date from day and time:", day, time);
+  ////console.log("Calculating reservation date from day and time:", day, time);
   
   const daysMap = {
     'sunday': 0,
@@ -1094,13 +1145,13 @@ const calculateReservationDate = (day, time) => {
  * @returns {boolean} - Whether restaurant is open
  */
 const isRestaurantOpen = (restaurant, day, time) => {
-  console.log("Checking if restaurant is open:", day, time);
+  ////console.log("Checking if restaurant is open:", day, time);
   
   const dayLower = day.toLowerCase();
   
   // Check if operating hours exist for requested day
   if (!restaurant.open_time || !restaurant.open_time[dayLower]) {
-    console.log("No operating hours found for this day");
+    ////console.log("No operating hours found for this day");
     return false;
   }
   
@@ -1108,13 +1159,13 @@ const isRestaurantOpen = (restaurant, day, time) => {
   const closeTime = restaurant.open_time[dayLower].close;
   
   if (!openTime || !closeTime) {
-    console.log("Open or close time not defined");
+    ////console.log("Open or close time not defined");
     return false;
   }
   
   // Convert times to minutes for simple comparison
   const timeToMinutes = (timeStr) => {
-    console.log("Parsing time string for comparison:", timeStr);
+    ////console.log("Parsing time string for comparison:", timeStr);
     
     // Check if the time string is in 12-hour format (contains AM/PM)
     const isPM = timeStr.toLowerCase().includes('pm');
@@ -1158,7 +1209,7 @@ const isRestaurantOpen = (restaurant, day, time) => {
     }
     
     const totalMinutes = hours * 60 + minutes;
-    console.log("Time in minutes:", totalMinutes);
+    ////console.log("Time in minutes:", totalMinutes);
     return totalMinutes;
   };
   
@@ -1168,7 +1219,7 @@ const isRestaurantOpen = (restaurant, day, time) => {
   
   // Check if requested time is between opening and closing
   const isOpen = requestedTimeInMinutes >= openTimeInMinutes && requestedTimeInMinutes < closeTimeInMinutes;
-  console.log("Restaurant is open:", isOpen);
+  ////console.log("Restaurant is open:", isOpen);
   return isOpen;
 };
 
@@ -1179,7 +1230,7 @@ const isRestaurantOpen = (restaurant, day, time) => {
  * @returns {Date} - Date object with correct date and time
  */
 const calculateReservationDateWithDate = (dateString, time) => {
-  console.log("Calculating reservation date from date string and time:", dateString, time);
+  ////console.log("Calculating reservation date from date string and time:", dateString, time);
   
   const date = new Date(dateString);
   const timeObj = parseTimeString(time);
@@ -1194,7 +1245,7 @@ const calculateReservationDateWithDate = (dateString, time) => {
  * @returns {Object} - Object with hours and minutes
  */
 const parseTimeString = (timeString) => {
-  console.log("Parsing time string:", timeString);
+  ////console.log("Parsing time string:", timeString);
   
   // Check if the time string is in 12-hour format (contains AM/PM)
   const isPM = timeString.toLowerCase().includes('pm');
@@ -1236,7 +1287,7 @@ const parseTimeString = (timeString) => {
     return { hours: 0, minutes: 0 }; // Default to midnight if parsing fails
   }
   
-  console.log("Parsed result:", { hours, minutes });
+  ////console.log("Parsed result:", { hours, minutes });
   return { hours, minutes };
 };
 
@@ -1247,7 +1298,7 @@ const parseTimeString = (timeString) => {
  * @returns {Array} - Array of time slots
  */
 const generateTimeSlots = (openTime, closeTime) => {
-  console.log("Generating time slots between:", openTime, "and", closeTime);
+  ////console.log("Generating time slots between:", openTime, "and", closeTime);
   
   const slots = [];
   
@@ -1287,13 +1338,13 @@ const generateTimeSlots = (openTime, closeTime) => {
     currentSlot.setMinutes(currentSlot.getMinutes() + 30);
   }
   
-  console.log("Generated", slots.length, "time slots");
+  ////console.log("Generated", slots.length, "time slots");
   return slots;
 };
 
 
 const update_Reservation_Status = async (req, res) => {
-  console.log("START update_Reservation_Status FUNCTION");
+  ////console.log("START update_Reservation_Status FUNCTION");
   const reservation_id = req.body.reservation_id;
   const status = req.body.status;
   const notify_all = req.body.notify_all || false;
@@ -1423,7 +1474,7 @@ const update_Reservation_Status = async (req, res) => {
         });
       }
       
-      console.log('WebSocket: Emitted reservation status change events');
+      ////console.log('WebSocket: Emitted reservation status change events');
     }
 
     // Also update the table if applicable
@@ -1437,7 +1488,7 @@ const update_Reservation_Status = async (req, res) => {
         });
       
       if (table) {
-        console.log(`Found table ${table.table_number} for reservation update`);
+        ////console.log(`Found table ${table.table_number} for reservation update`);
         
         // Update table_status based on reservation status
         if (status === 'Seated') {
@@ -1467,7 +1518,7 @@ const update_Reservation_Status = async (req, res) => {
         }
         
         await table.save();
-        console.log(`Table ${table.table_number} updated with new status: ${table.table_status}`);
+        ////console.log(`Table ${table.table_number} updated with new status: ${table.table_status}`);
         
         // Emit table update
         if (io && restaurantId) {
@@ -1487,9 +1538,19 @@ const update_Reservation_Status = async (req, res) => {
           });
         }
       } else {
-        console.log(`Table not found for reservation ${reservation_id}`);
+        ////console.log(`Table not found for reservation ${reservation_id}`);
       }
     }
+
+    if (status === 'Done' || status === 'Seated') {
+      try {
+        const restaurantId = restaurant_id || reservation.restaurant._id.toString();
+        await generateRandomBill(reservation_id, restaurantId);
+      } catch (billError) {
+      console.error(`error with new bill ${reservation_id}:`, billError);
+  }
+}
+
 
     res.json({
       success: true,
@@ -1511,7 +1572,7 @@ const update_Reservation_Status = async (req, res) => {
  * Update reservation details including table assignment
  */
 const update_Reservation_Details = async (req, res) => {
-  console.log("START update_Reservation_Details FUNCTION");
+  ////console.log("START update_Reservation_Details FUNCTION");
   
   // Extract data from request body
   const reservation_id = req.body.reservation_id;
@@ -1684,11 +1745,11 @@ const update_Reservation_Details = async (req, res) => {
       const previousTable = await Table.findById(previousTableId);
       
       if (previousTable) {
-        console.log(`Found previous table ${previousTableNumber}`);
+        ////console.log(`Found previous table ${previousTableNumber}`);
         
         // If table number changed, update the previous table status
         if (tableNumber !== undefined && tableNumber !== previousTableNumber) {
-          console.log(`Table number changed from ${previousTableNumber} to ${tableNumber}`);
+          ////console.log(`Table number changed from ${previousTableNumber} to ${tableNumber}`);
           
           // If this was the current reservation, clear it
           if (previousTable.current_reservation && 
@@ -1711,7 +1772,7 @@ const update_Reservation_Details = async (req, res) => {
           }
           
           await previousTable.save();
-          console.log(`Updated previous table ${previousTableNumber} status to ${previousTable.table_status}`);
+          ////console.log(`Updated previous table ${previousTableNumber} status to ${previousTable.table_status}`);
           
           // Emit table update
           if (io && restaurantId) {
@@ -1733,7 +1794,7 @@ const update_Reservation_Details = async (req, res) => {
       const newTable = await Table.findById(newTableId);
       
       if (newTable) {
-        console.log(`Found new table ${tableNumber}`);
+        ////console.log(`Found new table ${tableNumber}`);
         
         // Update table status based on reservation status
         if (reservation.status === 'Seated') {
@@ -1744,7 +1805,7 @@ const update_Reservation_Details = async (req, res) => {
         }
         
         await newTable.save();
-        console.log(`Updated new table ${tableNumber} status to ${newTable.table_status}`);
+        ////console.log(`Updated new table ${tableNumber} status to ${newTable.table_status}`);
         
         // Emit table update
         if (io && restaurantId) {
@@ -1822,7 +1883,7 @@ const update_Reservation_Details = async (req, res) => {
         });
       }
       
-      console.log('Emitted real-time update for reservation', reservation_id);
+      ////console.log('Emitted real-time update for reservation', reservation_id);
     }
     
     // Return success response
@@ -1841,7 +1902,7 @@ const update_Reservation_Details = async (req, res) => {
       updates: updateDetails.updates
     });
     
-    console.log("END Update Reservation Details");
+    ////console.log("END Update Reservation Details");
     
   } catch (error) {
     console.error("Error updating reservation details:", error);
@@ -1854,7 +1915,7 @@ const update_Reservation_Details = async (req, res) => {
 };
 // Helper function to map UserOrder status to reservation client_status
 function mapOrderStatusToReservationStatus(status) {
-  console.log(`Mapping order status: ${status}`);
+  ////console.log(`Mapping order status: ${status}`);
   
   const statusMap = {
     'Planning': 'planning',
@@ -1865,7 +1926,7 @@ function mapOrderStatusToReservationStatus(status) {
   };
   
   const result = statusMap[status] || 'planning';
-  console.log(`Mapped to: ${result}`);
+  ////console.log(`Mapped to: ${result}`);
   return result;
 }
 
@@ -1908,7 +1969,7 @@ async function getCustomerName(reservation) {
 }
 
 const get_Customer_Reservation_History = async (req, res) => {
-  console.log("Start GET Reservation History");
+  ////console.log("Start GET Reservation History");
   const { customer_id, email } = req.query;
   
   try {
@@ -1971,7 +2032,7 @@ const get_Customer_Reservation_History = async (req, res) => {
       },
       reservations
     });
-    console.log("End GET Reservation History");
+    ////console.log("End GET Reservation History");
   } catch (error) {
     console.error('Error fetching reservation history:', error);
     res.status(500).json({
@@ -1983,7 +2044,7 @@ const get_Customer_Reservation_History = async (req, res) => {
 };
 
 const get_Restaurant_Clients = async (req, res) => {
-  console.log("Start GET Clients Data");
+  ////console.log("Start GET Clients Data");
   try {
     const restaurant_id = req.params.id;
     if (!restaurant_id) {
@@ -2008,7 +2069,7 @@ const get_Restaurant_Clients = async (req, res) => {
     const allClientIds = all_orders.map(order => order.client_id ? order.client_id.toString() : null)
                                  .filter(id => id !== null);
     
-    console.log(`Found ${allClientIds.length} client IDs from orders`);
+    ////console.log(`Found ${allClientIds.length} client IDs from orders`);
     
     // Step 3: Find all registered clients
     const registered_Clients = await ClientUser.find({
@@ -2023,14 +2084,14 @@ const get_Restaurant_Clients = async (req, res) => {
     // Step 5: Find all client IDs that are not registered clients
     const guestClientIds = allClientIds.filter(id => !registeredClientIdSet.has(id));
     
-    console.log(`Found ${registered_Clients.length} registered clients and ${guestClientIds.length} guest client IDs`);
+    ////console.log(`Found ${registered_Clients.length} registered clients and ${guestClientIds.length} guest client IDs`);
     
     // Step 6: Find guest clients directly by ID
     const guest_Clients = await ClientGuest.find({
       _id: { $in: guestClientIds }
     });
     
-    console.log(`Found ${guest_Clients.length} guest clients in the database by ID`);
+    ////console.log(`Found ${guest_Clients.length} guest clients in the database by ID`);
     
     // Step 7: Process registered clients
     const formattedRegisteredClients = registered_Clients.map(client => {
@@ -2078,7 +2139,7 @@ const get_Restaurant_Clients = async (req, res) => {
         return new Date(b.last_visit) - new Date(a.last_visit);
       });
     
-    console.log("End GET Clients Data");
+    ////console.log("End GET Clients Data");
     res.status(200).json({
       success: true,
       total: allCustomers.length,
@@ -2111,7 +2172,7 @@ const findLastVisit = (orders) => {
 };
 
 const get_Restaurant_Menu = async (req, res) => {
-  console.log("START")
+  ////console.log("START")
   try {
     const restaurantId = req.params.id;
     if (!restaurantId) {
@@ -2331,7 +2392,7 @@ const update_Restaurant_Menu = async (req, res) => {
 
 
 const get_all_bills_for_Restaurants = async (req, res) => {
-  console.log("START get_all_bills_for_Restaurants");
+  ////console.log("START get_all_bills_for_Restaurants");
   try {
     // Extract and validate request parameters
     const restaurant_id = req.body.restaurant_id;
@@ -2344,7 +2405,7 @@ const get_all_bills_for_Restaurants = async (req, res) => {
       ? new mongoose.Types.ObjectId(restaurant_id) 
       : restaurant_id;
 
-    console.log(`Processing request for restaurant ID: ${restaurantObjectId}`);
+    ////console.log(`Processing request for restaurant ID: ${restaurantObjectId}`);
 
     // Parse date parameters with proper validation
     let start_date = null;
@@ -2355,7 +2416,7 @@ const get_all_bills_for_Restaurants = async (req, res) => {
       if (isNaN(start_date.getTime())) {
         return res.status(400).json({ success: false, message: "Invalid start date format" });
       }
-      console.log(`Using start date: ${start_date.toISOString()}`);
+      ////console.log(`Using start date: ${start_date.toISOString()}`);
     }
     
     if (req.body.end_date) {
@@ -2365,7 +2426,7 @@ const get_all_bills_for_Restaurants = async (req, res) => {
       }
       // Set end date to end of day
       end_date.setHours(23, 59, 59, 999);
-      console.log(`Using end date: ${end_date.toISOString()}`);
+      ////console.log(`Using end date: ${end_date.toISOString()}`);
     }
     
     const analytics = req.body.analytics || false;
@@ -2377,7 +2438,7 @@ const get_all_bills_for_Restaurants = async (req, res) => {
     // NEW APPROACH: Get all valid orders for this restaurant first
     // This is just to check if our restaurant ID is valid and has orders
     const orderCountCheck = await UserOrder.countDocuments({ restaurant: restaurantObjectId });
-    console.log(`Total orders for restaurant ${restaurantObjectId}: ${orderCountCheck}`);
+    ////console.log(`Total orders for restaurant ${restaurantObjectId}: ${orderCountCheck}`);
     
     // NEW APPROACH: Get all bills from RestaurantsBills
     // We'll do a two-step process:
@@ -2395,27 +2456,27 @@ const get_all_bills_for_Restaurants = async (req, res) => {
       billDateQuery.date = { $lte: end_date };
     }
     
-    console.log("Initial bill query (date filters only):", JSON.stringify(billDateQuery));
+    ////console.log("Initial bill query (date filters only):", JSON.stringify(billDateQuery));
     
     // Check if specific bill exists (the one mentioned) before filtering
     if (mongoose.Types.ObjectId.isValid("67f50abdf604bb8f6eda36d0")) {
       const testBill = await RestaurantsBills.findById("67f50abdf604bb8f6eda36d0").lean();
       if (testBill) {
-        console.log("Found specific bill with ID 67f50abdf604bb8f6eda36d0:");
-        console.log("Bill order_id:", testBill.order_id);
+        ////console.log("Found specific bill with ID 67f50abdf604bb8f6eda36d0:");
+        ////console.log("Bill order_id:", testBill.order_id);
         
         // Check which restaurant this bill belongs to
         if (testBill.order_id) {
           const billOrder = await UserOrder.findById(testBill.order_id).lean();
           if (billOrder) {
-            console.log("This bill belongs to restaurant:", billOrder.restaurant);
-            console.log("Matches our restaurant?", billOrder.restaurant.toString() === restaurantObjectId.toString());
+            ////console.log("This bill belongs to restaurant:", billOrder.restaurant);
+            ////console.log("Matches our restaurant?", billOrder.restaurant.toString() === restaurantObjectId.toString());
           } else {
-            console.log("Could not find order for this bill");
+            ////console.log("Could not find order for this bill");
           }
         }
       } else {
-        console.log("Could not find specific bill with ID 67f50abdf604bb8f6eda36d0");
+        ////console.log("Could not find specific bill with ID 67f50abdf604bb8f6eda36d0");
       }
     }
     
@@ -2423,7 +2484,7 @@ const get_all_bills_for_Restaurants = async (req, res) => {
     const allDateFilteredBills = await RestaurantsBills.find(billDateQuery)
       .lean();
     
-    console.log(`Found ${allDateFilteredBills.length} bills matching date filters`);
+    ////console.log(`Found ${allDateFilteredBills.length} bills matching date filters`);
     
     if (allDateFilteredBills.length === 0) {
       return res.status(404).json({
@@ -2441,7 +2502,7 @@ const get_all_bills_for_Restaurants = async (req, res) => {
       restaurant: restaurantObjectId
     }).lean();
     
-    console.log(`Found ${relatedOrders.length} orders that match bills and belong to restaurant`);
+    ////console.log(`Found ${relatedOrders.length} orders that match bills and belong to restaurant`);
     
     // Get IDs of orders that match our criteria
     const matchingOrderIds = relatedOrders.map(order => order._id);
@@ -2454,7 +2515,7 @@ const get_all_bills_for_Restaurants = async (req, res) => {
         status: status
       }).lean();
       filteredOrderIds = ordersWithStatus.map(order => order._id);
-      console.log(`After status filter, found ${filteredOrderIds.length} matching orders`);
+      ////console.log(`After status filter, found ${filteredOrderIds.length} matching orders`);
     }
     
     // Now find bills for these filtered orders
@@ -2464,7 +2525,7 @@ const get_all_bills_for_Restaurants = async (req, res) => {
       )
     );
     
-    console.log(`Final count of matching bills: ${matchingBills.length}`);
+    ////console.log(`Final count of matching bills: ${matchingBills.length}`);
     
     // Apply pagination to the bills
     const totalBills = matchingBills.length;
@@ -2923,10 +2984,10 @@ const calculateAnalytics = (bills, orders) => {
 
 // Function to get all bills for a user
 const get_all_bills_for_user = async (req, res) => {
-  console.log("START get_all_bills_for_user");
+  ////console.log("START get_all_bills_for_user");
   try {
     const order_id = req.params.id;
-    console.log("Looking for bill with order_id:", order_id);
+    //console.log("Looking for bill with order_id:", order_id);
 
     if (!order_id) {
       return res.status(400).json({ success: false, message: "Order ID is required" });
@@ -2940,7 +3001,7 @@ const get_all_bills_for_user = async (req, res) => {
     }
 
     const bills = await RestaurantsBills.find({ order_id: orderObjectId });
-    console.log(bills)
+    ////console.log(bills)
     if (!bills || bills.length === 0) {
       return res.status(404).json({ 
         success: false, 
@@ -2984,6 +3045,126 @@ const get_all_bills_for_user = async (req, res) => {
       message: "Server error processing bill", 
       error: error.message 
     });
+  }
+};
+
+
+/**
+ * Generate a random bill for a restaurant order
+ * @param {string} orderId - The ID of the user order
+ * @param {string} restaurantId - The ID of the restaurant
+ * @returns {Promise<Object|null>} - The generated bill or null
+ */
+const generateRandomBill = async (orderId, restaurantId) => {
+  try {
+    // Check if a bill already exists for this order
+    const existingBill = await RestaurantsBills.findOne({ order_id: orderId });
+    
+    if (existingBill) {
+      //console.log(`Bill already exists for order ${orderId}`);
+      return null;
+    }
+    
+    // Find the restaurant and populate its menu
+    const restaurant = await restaurants.findById(restaurantId)
+      .populate({
+        path: 'menu',
+        model: 'MenuCollection',
+        populate: {
+          path: 'menus.items',
+          model: 'MenuCollection'
+        }
+      });
+    
+    if (!restaurant || !restaurant.menu) {
+      //console.log(`Restaurant menu not found for ID ${restaurantId}`);
+      return null;
+    }
+    
+    // Extract all menu items from all menus
+    const allMenuItems = [];
+    
+    if (restaurant.menu && Array.isArray(restaurant.menu)) {
+      // Handle case where restaurant.menu is an array
+      restaurant.menu[0].menus.forEach(menuSection => {
+        if (menuSection.items && Array.isArray(menuSection.items)) {
+          menuSection.items.forEach(item => {
+            allMenuItems.push({
+              name: item.name,
+              price: item.price,
+              category: menuSection.title || item.category
+            });
+          });
+        }
+      });
+    } else if (restaurant.menu && restaurant.menu.menus) {
+      // Handle case where restaurant.menu is an object with menus property
+      restaurant.menu.menus.forEach(menuSection => {
+        if (menuSection.items && Array.isArray(menuSection.items)) {
+          menuSection.items.forEach(item => {
+            allMenuItems.push({
+              name: item.name,
+              price: item.price,
+              category: menuSection.title || item.category
+            });
+          });
+        }
+      });
+    }
+    
+    if (allMenuItems.length === 0) {
+      //console.log(`No menu items found for restaurant ${restaurantId}`);
+      return null;
+    }
+    
+    // Generate random number of items (4-12)
+    const numberOfItems = Math.floor(Math.random() * 9) + 4;
+    
+    // Generate a set of random menu items
+    const selectedItems = [];
+    const selectedItemNames = new Set(); // To ensure uniqueness
+    
+    // Try to select unique items
+    while (selectedItems.length < numberOfItems && selectedItems.length < allMenuItems.length) {
+      const randomIndex = Math.floor(Math.random() * allMenuItems.length);
+      const menuItem = allMenuItems[randomIndex];
+      
+      // Skip if we've already selected this item
+      if (selectedItemNames.has(menuItem.name)) continue;
+      
+      selectedItemNames.add(menuItem.name);
+      
+      // Generate random quantity (1-5)
+      const quantity = Math.floor(Math.random() * 5) + 1;
+      
+      selectedItems.push({
+        name: menuItem.name,
+        price: menuItem.price,
+        category: menuItem.category,
+        quantity: quantity
+      });
+    }
+    
+    // Calculate the total price explicitly
+    const totalPrice = selectedItems.reduce((total, item) => {
+      return total + (item.price * item.quantity);
+    }, 0);
+    
+    // Create and save the bill with explicitly set total_Price
+    const newBill = new RestaurantsBills({
+      order_id: orderId,
+      orders_items: selectedItems,
+      total_Price: totalPrice // Explicitly set the total price
+    });
+    
+    const savedBill = await newBill.save();
+    //console.log(`Bill created successfully for order ${orderId} with total price ${totalPrice}`);
+    
+    return savedBill;
+    
+  } catch (error) {
+    console.error('Error generating random bill:', error);
+    return null;
   }
 };
 
