@@ -135,7 +135,6 @@ const Restaurants_Reservation = async (req, res) => {
           };
         }
       }
-      
       processedReservations.push({
         id: reservation._id,
         orderDetails: {
@@ -143,7 +142,8 @@ const Restaurants_Reservation = async (req, res) => {
           status: reservation.status,
           orderDate: reservation.orderDate,
           startTime: reservation.start_time,
-          endTime: reservation.end_time
+          endTime: reservation.end_time,
+          table: reservation.tableNumber
         },
         customer: customerInfo
       });
@@ -715,7 +715,7 @@ const findBestTable = async (restaurantId, reservationDate, endTime, guests) => 
  * @param {Object} res - Response object
  */
 const create_Reservation = async (req, res) => {
-  //console.log("=== Start create_Reservation ===");
+  console.log("=== Start create_Reservation ===", req.body);
   const restaurantId = req.body.restaurant_Id;
   
   // Get table information if provided

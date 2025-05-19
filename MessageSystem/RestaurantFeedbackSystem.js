@@ -4,17 +4,16 @@ const UserOrder = require('../models/User_Order');
 
 const dotenv = require('dotenv');
 dotenv.config();
-BACKEND_API = process.env.BACKEND_API
+FRONT_API = process.env.FRONT_API
 
 // Function to generate feedback link
 const generateFeedbackLink = (order) => {
-  return `${BACKEND_API}/survey?order=${order._id}`;
+  return `${FRONT_API}/survey?order=${order._id}`;
 };
 
 // Function to generate personalized email message
 function generateFeedbackMessage(order) {
   const link = generateFeedbackLink(order);
-  
   // Check how to access client and restaurant data in your order model
   // These fields might have different names in your schema
   const clientName = order.client_id ? (order.client_id.firstName || 'Valued Customer') : 'Valued Customer';
@@ -104,9 +103,9 @@ async function sendRestaurantFeedbackEmails() {
 
 // Schedule daily feedback emails
 function scheduleDailyFeedbackEmails() {
-  ////sendRestaurantFeedbackEmails()
+  //sendRestaurantFeedbackEmails()
   cron.schedule('0 10 * * *', async () => {
-    //console.log('Triggering scheduled feedback emails...');
+    console.log('Triggering scheduled feedback emails...');
     await sendRestaurantFeedbackEmails();
   });
 }
