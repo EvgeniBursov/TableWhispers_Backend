@@ -628,80 +628,75 @@ const get_Available_Tables = async (req, res) => {
  */
 const findBestTable = async (restaurantId, reservationDate, endTime, guests) => {
   try {
-    // Get the restaurant with its tables
-    const restaurant = await restaurants.findById(restaurantId).populate('tables');
+    const startDateTime = new Date(reservationDate);
+    const endDateTime = new Date(endTime);
     
+    console.log(`Looking for table for ${guests} guests from ${startDateTime} to ${endDateTime}`);
+    const minSeats = guests;
+    const maxSeats = guests + 2;
+    
+    console.log(`Searching for tables with ${minSeats}-${maxSeats} seats`);
+    const restaurant = await restaurants.findById(restaurantId).populate('tables');
+     console.log("*********************************",restaurant)
     if (!restaurant || !restaurant.tables || restaurant.tables.length === 0) {
+      console.log("No tables found for restaurant:", restaurantId);
       return null;
     }
+    const eligibleTables = restaurant.tables.filter(table => 
+      table.seats >= minSeats && 
+      table.seats <= maxSeats  
+    );
     
-    // Get existing reservations that overlap with the requested time
-    const existingReservations = await UserOrder.find({
-      restaurant: restaurantId,
-      status: { $nin: ['Cancelled'] },
-      // Use the standardized overlap condition
-      $or: [
-        { start_time: { $lt: endTime }, end_time: { $gt: reservationDate } }
-      ]
-    });
+    if (eligibleTables.length === 0) {
+      console.log(`No tables with ${minSeats}-${maxSeats} seats or in available status`);
+      const largerTables = restaurant.tables.filter(table => 
+        table.seats > maxSeats
+      );
+      console.log(eligibleTables)
+      
+      if (largerTables.length === 0) {
+        console.log("No larger tables available either");
+        return null;
+      }
+      console.log(`Found ${largerTables.length} larger tables, will check availability`);
+      eligibleTables.push(...largerTables);
+    }
+    const availableTables = [];
     
-    // Create sets of reserved table IDs and numbers
-    const reservedTableIds = new Set();
-    const reservedTableNumbers = new Set();
+    for (const table of eligibleTables) {
+      const overlappingReservations = await UserOrder.find({
+        restaurant: restaurantId,
+        status: { $nin: ['Cancelled'] },
+        $and: [
+          { start_time: { $lt: endDateTime } },
+          { end_time: { $gt: startDateTime } }
+        ],
+        $or: [
+          { table_Id: table._id },
+          { tableNumber: table.table_number }
+        ]
+      });
     
-    existingReservations.forEach(res => {
-      if (res.table_Id) {
-        reservedTableIds.add(res.table_Id.toString());
+      if (overlappingReservations.length === 0) {
+        availableTables.push(table);
       }
-      if (res.tableNumber) {
-        reservedTableNumbers.add(res.tableNumber);
-      }
-    });
+    }
     
-    // Filter available tables with explicit checks
-    const availableTables = restaurant.tables.filter(table => {
-      // Skip if already reserved by ID
-      if (reservedTableIds.has(table._id.toString())) {
-        return false;
-      }
-      
-      // Skip if already reserved by number
-      if (table.table_number && reservedTableNumbers.has(table.table_number.toString())) {
-        return false;
-      }
-      
-      // Skip if too small
-      if (table.seats < guests) {
-        return false;
-      }
-      
-      // Skip if not available
-      if (table.table_status !== 'available') {
-        return false;
-      }
-      
-      return true;
-    });
+    console.log(`Found ${availableTables.length} available tables`);
     
     if (availableTables.length === 0) {
       return null;
     }
-    
-    // Find optimal table (closest to party size)
     availableTables.sort((a, b) => {
-      // Get the smallest table that fits the party
-      if (a.seats >= guests && b.seats >= guests) {
-        return a.seats - b.seats;  // Smallest table that fits
-      } else if (a.seats >= guests) {
-        return -1;  // a fits, b doesn't
-      } else if (b.seats >= guests) {
-        return 1;   // b fits, a doesn't
-      } else {
-        return b.seats - a.seats;  // Get largest table if none fit
-      }
+      const aInRange = a.seats <= maxSeats;
+      const bInRange = b.seats <= maxSeats;
+      
+      if (aInRange && !bInRange) return -1;
+      if (!aInRange && bInRange) return 1;
+      return a.seats - b.seats;
     });
     
-    // Return the best match
+    console.log(`Selected table: ${availableTables[0]._id}, number: ${availableTables[0].table_number}, seats: ${availableTables[0].seats}`);
     return availableTables[0];
   } catch (error) {
     console.error('Error finding best table:', error);

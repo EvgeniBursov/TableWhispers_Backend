@@ -2,6 +2,7 @@ const Table = require('../models/Tables');
 const UserOrder = require('../models/User_Order');
 const ClientUser = require('../models/Client_User');
 const ClientGuest = require('../models/ClientGuest');
+const RestaruntSchema = require('../models/Restarunt');
 const mongoose = require('mongoose');
 
 // Import socket events
@@ -135,7 +136,6 @@ const addTable = async (req, res) => {
         message: 'Restaurant ID, table number, seats, and shape are required'
       });
     }
-    
     // Validate shape-specific dimensions
     if (shape === 'round' && !size) {
       return res.status(400).json({
@@ -178,9 +178,17 @@ const addTable = async (req, res) => {
       section: section || 'main',
       table_status: table_status || 'available'
     });
+    const saved_Table = await newTable.save();
     
-    await newTable.save();
-    
+    const restaurant = await RestaruntSchema.findById(restaurant_id);
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restaurant not found'
+      });
+    }
+    restaurant.tables.push(saved_Table._id);
+    await restaurant.save();
     // Emit socket events for real-time update
     const io = req.app.get('socketio');
     emitTableAdded(io, restaurant_id, newTable);
