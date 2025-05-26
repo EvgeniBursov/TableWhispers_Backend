@@ -10,7 +10,19 @@ const RestaurantsBills = require('../models/Restaurants_Bills')
 
 const {sendMail} = require('../MessageSystem/email_message');
 
+const ISRAEL_TIMEZONE = 'Asia/Jerusalem';
+const createIsraelDate = (dateString, timeString) => {
+  const [year, month, day] = dateString.split('-');
+  const [hours, minutes] = timeString.split(':');
 
+  return new Date(Date.UTC(
+    parseInt(year), 
+    parseInt(month) - 1, 
+    parseInt(day), 
+    parseInt(hours) - 2, 
+    parseInt(minutes)
+  ));
+};
 
 const all_Restaurants_Data = async (req, res) => {
   const restaurantId = req.params.id; 
@@ -141,8 +153,8 @@ const Restaurants_Reservation = async (req, res) => {
           guests: reservation.guests,
           status: reservation.status,
           orderDate: reservation.orderDate,
-          startTime: reservation.start_time,
-          endTime: reservation.end_time,
+          startTime: reservation.start_time.toISOString(),
+          endTime: reservation.end_time.toISOString(),
           table: reservation.tableNumber
         },
         customer: customerInfo
@@ -739,10 +751,14 @@ const create_Reservation = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Restaurant not found' });
     }
 
-    const reservationDate = date ? 
+    /*const reservationDate = date ? 
       calculateReservationDateWithDate(date, time) : 
-      calculateReservationDate(day, time);
+      calculateReservationDate(day, time);*/
     
+    const reservationDate = date ? 
+      createIsraelDate(date, time) : 
+      calculateReservationDate(day, time);
+      
     const endTime = new Date(reservationDate.getTime());
     endTime.setMinutes(endTime.getMinutes() + 90);
 
@@ -997,7 +1013,8 @@ const create_Reservation = async (req, res) => {
         }
       });
     }
-    
+    console.log(startTime)
+    console.log("*****************************",startTime.toISOString())
     const emailMessage = `Hello ${clientName},
     
 You have a reservation at "${restaurant.res_name}"
@@ -1008,7 +1025,7 @@ Time: ${formattedStartTime} to ${formattedEndTime}.
 Best regards,
 Table Whispers`;
 
-    sendMail(userEmail, emailMessage, 'order_info');
+    ////////sendMail(userEmail, emailMessage, 'order_info');
     return res.status(200).json({
       success: true,
       message: "Reservation created successfully",
@@ -1100,6 +1117,7 @@ const calculateReservationDate = (day, time) => {
   const today = new Date();
   const currentDayOfWeek = today.getDay();
   const targetDayOfWeek = daysMap[day.toLowerCase()];
+  const timeObj = parseTimeString(time);
   
   // Calculate days until target day
   let daysToAdd = targetDayOfWeek - currentDayOfWeek;
@@ -1120,7 +1138,6 @@ const calculateReservationDate = (day, time) => {
   reservationDate.setDate(today.getDate() + daysToAdd);
   
   // Set time
-  const timeObj = parseTimeString(time);
   reservationDate.setHours(timeObj.hours, timeObj.minutes, 0, 0);
   
   return reservationDate;
@@ -1412,8 +1429,8 @@ const update_Reservation_Status = async (req, res) => {
       orderDetails: {
         guests: reservation.guests,
         status: reservation.status,
-        startTime: reservation.start_time,
-        endTime: reservation.end_time,
+        startTime: reservation.start_time.toISOString(),
+        endTime: reservation.end_time.toISOString(),
         tableNumber: reservation.tableNumber
       },
       restaurantName: reservation.restaurant?.res_name || 'Restaurant'
