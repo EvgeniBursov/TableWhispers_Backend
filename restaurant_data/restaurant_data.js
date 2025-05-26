@@ -14,7 +14,6 @@ const ISRAEL_TIMEZONE = 'Asia/Jerusalem';
 const createIsraelDate = (dateString, timeString) => {
   const [year, month, day] = dateString.split('-');
   const [hours, minutes] = timeString.split(':');
-
   return new Date(Date.UTC(
     parseInt(year), 
     parseInt(month) - 1, 
@@ -640,41 +639,56 @@ const get_Available_Tables = async (req, res) => {
  */
 const findBestTable = async (restaurantId, reservationDate, endTime, guests) => {
   try {
-    const startDateTime = new Date(reservationDate);
-    const endDateTime = new Date(endTime);
+
+    const startDateTime = reservationDate;
+    const endDateTime = endTime;
+
+    console.log(`Looking for table for ${guests} guests`);
+    console.log(`Start time: ${startDateTime.toISOString()} (UTC)`);
+    console.log(`End time: ${endDateTime.toISOString()} (UTC)`);
+
+    const formatTimeDebug = (date) => {
+      return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')} ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')} UTC`;
+    };
     
-    console.log(`Looking for table for ${guests} guests from ${startDateTime} to ${endDateTime}`);
+   // console.log(`Readable start: ${formatTimeDebug(startDateTime)}`);
+   // console.log(`Readable end: ${formatTimeDebug(endDateTime)}`);
+    
     const minSeats = guests;
     const maxSeats = guests + 2;
     
-    console.log(`Searching for tables with ${minSeats}-${maxSeats} seats`);
+   // console.log(`Searching for tables with ${minSeats}-${maxSeats} seats`);
     const restaurant = await restaurants.findById(restaurantId).populate('tables');
     if (!restaurant || !restaurant.tables || restaurant.tables.length === 0) {
-      console.log("No tables found for restaurant:", restaurantId);
+     // console.log("No tables found for restaurant:", restaurantId);
       return null;
     }
+    
     const eligibleTables = restaurant.tables.filter(table => 
       table.seats >= minSeats && 
       table.seats <= maxSeats  
     );
     
     if (eligibleTables.length === 0) {
-      console.log(`No tables with ${minSeats}-${maxSeats} seats or in available status`);
+     // console.log(`No tables with ${minSeats}-${maxSeats} seats or in available status`);
       const largerTables = restaurant.tables.filter(table => 
         table.seats > maxSeats
       );
-      console.log(eligibleTables)
+      //console.log("Eligible tables:", eligibleTables);
       
       if (largerTables.length === 0) {
-        console.log("No larger tables available either");
+       // console.log("No larger tables available either");
         return null;
       }
-      console.log(`Found ${largerTables.length} larger tables, will check availability`);
+    //  console.log(`Found ${largerTables.length} larger tables, will check availability`);
       eligibleTables.push(...largerTables);
     }
+    
     const availableTables = [];
     
     for (const table of eligibleTables) {
+      //console.log(`Checking availability for table ${table.table_number} (ID: ${table._id})`);
+      
       const overlappingReservations = await UserOrder.find({
         restaurant: restaurantId,
         status: { $nin: ['Cancelled'] },
@@ -687,13 +701,19 @@ const findBestTable = async (restaurantId, reservationDate, endTime, guests) => 
           { tableNumber: table.table_number }
         ]
       });
-    
-      if (overlappingReservations.length === 0) {
+      
+      if (overlappingReservations.length > 0) {
+        //console.log(`Table ${table.table_number} has ${overlappingReservations.length} overlapping reservations:`);
+        overlappingReservations.forEach((res, index) => {
+          //console.log(`  ${index + 1}. ${formatTimeDebug(res.start_time)} to ${formatTimeDebug(res.end_time)}`);
+        });
+      } else {
+        //console.log(`Table ${table.table_number} is available!`);
         availableTables.push(table);
       }
     }
     
-    console.log(`Found ${availableTables.length} available tables`);
+    //console.log(`Found ${availableTables.length} available tables`);
     
     if (availableTables.length === 0) {
       return null;
@@ -714,6 +734,8 @@ const findBestTable = async (restaurantId, reservationDate, endTime, guests) => 
     return null;
   }
 };
+
+
 
 /**
  * Creates a new reservation
@@ -751,14 +773,17 @@ const create_Reservation = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Restaurant not found' });
     }
 
-    /*const reservationDate = date ? 
+    // קבלת התוצאה כ-object
+    const reservationResult = date ? 
       calculateReservationDateWithDate(date, time) : 
-      calculateReservationDate(day, time);*/
-    
-    const reservationDate = date ? 
-      createIsraelDate(date, time) : 
       calculateReservationDate(day, time);
-      
+
+    const reservationDate = reservationResult.date || reservationResult; 
+    const formattedReservationTime = reservationResult.formatted || null;
+    
+    console.log("Reservation Date:", reservationDate);
+    console.log("Formatted Time:", formattedReservationTime);
+
     const endTime = new Date(reservationDate.getTime());
     endTime.setMinutes(endTime.getMinutes() + 90);
 
@@ -950,22 +975,26 @@ const create_Reservation = async (req, res) => {
       }
     );
     
-    const formattedDateStr = reservationDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    // פורמט זמן אחיד - שימוש ב-UTC כדי להימנע מ-timezone issues
+    const formatDateForDisplay = (date) => {
+      const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                     'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      return `${weekdays[date.getUTCDay()]}, ${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
+    };
+    
+    const formatTimeForDisplay = (date) => {
+      const hours = date.getUTCHours();
+      const minutes = date.getUTCMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+    };
 
-    const formattedStartTime = reservationDate.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-
-    const formattedEndTime = endTime.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const formattedDateStr = formatDateForDisplay(reservationDate);
+    const formattedStartTime = formatTimeForDisplay(reservationDate);
+    const formattedEndTime = formatTimeForDisplay(endTime);
     
     let processedAllergies = [];
     if (clientData.allergies && Array.isArray(clientData.allergies)) {
@@ -1013,8 +1042,10 @@ const create_Reservation = async (req, res) => {
         }
       });
     }
-    console.log(startTime)
-    console.log("*****************************",startTime.toISOString())
+
+    console.log("Start Time:", reservationDate);
+    console.log("Start Time ISO:", reservationDate.toISOString());
+    
     const emailMessage = `Hello ${clientName},
     
 You have a reservation at "${restaurant.res_name}"
@@ -1139,7 +1170,7 @@ const calculateReservationDate = (day, time) => {
   
   // Set time
   reservationDate.setHours(timeObj.hours, timeObj.minutes, 0, 0);
-  
+  //console.log(reservationDate)
   return reservationDate;
 };
 
@@ -1241,37 +1272,75 @@ const calculateReservationDateWithDate = (dateString, time) => {
   const year = parseInt(dateParts[0], 10);
   const month = parseInt(dateParts[1], 10) - 1; 
   const day = parseInt(dateParts[2], 10);
-  return new Date(year, month, day, timeObj.hours, timeObj.minutes, 0, 0);
-};
 
+  const date = new Date(Date.UTC(year, month, day, timeObj.hours, timeObj.minutes, 0, 0));
+
+  const formatLocalDateTime = (date) => {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+  //console.log(date,formatLocalDateTime(date),date.getTime())
+  return {
+    date: date,                           
+    //formatted: formatLocalDateTime(date), 
+    //timestamp: date.getTime()            
+  };
+};
 /**
  * Parses time string into hours and minutes
  * @param {string} timeString - Time string in various formats
  * @returns {Object} - Object with hours and minutes
  */
 const parseTimeString = (timeString) => {
-  ////console.log("Parsing time string:", timeString);
+  //console.log("Parsing time string:", timeString);
+  
+  if (!timeString || typeof timeString !== 'string') {
+    console.error("Invalid input:", timeString);
+    return { hours: 0, minutes: 0 };
+  }
   
   // Check if the time string is in 12-hour format (contains AM/PM)
-  const isPM = timeString.toLowerCase().includes('pm');
-  const isAM = timeString.toLowerCase().includes('am');
+  const isPM = timeString.toLowerCase().includes('pm') || timeString.toLowerCase().includes('p.m.');
+  const isAM = timeString.toLowerCase().includes('am') || timeString.toLowerCase().includes('a.m.');
   
   let hours, minutes;
   
   if (isPM || isAM) {
-    // Handle 12-hour format with AM/PM
-    // Remove AM/PM and trim any whitespace
     const cleanTimeStr = timeString.toLowerCase()
-      .replace('am', '')
-      .replace('pm', '')
+      .replace(/\s+/g, '') // Remove all whitespace first
       .replace('a.m.', '')
       .replace('p.m.', '')
-      .trim();
+      .replace('am', '')
+      .replace('pm', '');
     
     // Split into hours and minutes
     const timeParts = cleanTimeStr.split(':');
+    
+    // Validate we have exactly 2 parts
+    if (timeParts.length !== 2) {
+      console.error("Invalid time format - expected HH:MM:", timeString);
+      return { hours: 0, minutes: 0 };
+    }
+    
     hours = parseInt(timeParts[0], 10);
     minutes = parseInt(timeParts[1], 10);
+    
+    // Check for valid parsing results
+    if (isNaN(hours) || isNaN(minutes)) {
+      console.error("Failed to parse numbers from time string:", timeString);
+      return { hours: 0, minutes: 0 };
+    }
+    
+    // Validate 12-hour format ranges
+    if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
+      console.error("Invalid 12-hour time values:", { hours, minutes }, "from:", timeString);
+      return { hours: 0, minutes: 0 };
+    }
     
     // Convert 12-hour to 24-hour
     if (isPM && hours < 12) {
@@ -1281,18 +1350,30 @@ const parseTimeString = (timeString) => {
     }
   } else {
     // Handle 24-hour format
-    const [hoursStr, minutesStr] = timeString.split(':');
-    hours = parseInt(hoursStr, 10);
-    minutes = parseInt(minutesStr, 10);
+    const cleanTimeStr = timeString.replace(/\s+/g, ''); // Remove whitespace
+    const timeParts = cleanTimeStr.split(':');
+    
+    // Validate we have exactly 2 parts
+    if (timeParts.length !== 2) {
+      console.error("Invalid time format - expected HH:MM:", timeString);
+      return { hours: 0, minutes: 0 };
+    }
+    
+    hours = parseInt(timeParts[0], 10);
+    minutes = parseInt(timeParts[1], 10);
+    
+    // Check for valid parsing results
+    if (isNaN(hours) || isNaN(minutes)) {
+      console.error("Failed to parse numbers from time string:", timeString);
+      return { hours: 0, minutes: 0 };
+    }
   }
   
-  // Check for valid parsing results
-  if (isNaN(hours) || isNaN(minutes)) {
-    console.error("Failed to parse time string:", timeString);
-    return { hours: 0, minutes: 0 }; // Default to midnight if parsing fails
+  // Final validation for 24-hour format
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    console.error("Invalid 24-hour time values:", { hours, minutes }, "from:", timeString);
+    return { hours: 0, minutes: 0 };
   }
-  
-  ////console.log("Parsed result:", { hours, minutes });
   return { hours, minutes };
 };
 
