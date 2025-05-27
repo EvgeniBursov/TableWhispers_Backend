@@ -380,7 +380,7 @@ dotenv.config();
     //console.log('WebSockets enabled on server');
 });*/
 
-const port = process.env.CLIEN_PORT || 6000; 
+const port = process.env.PORT || 6000; 
 http_server.listen(port, () => {
   console.log('Server is up and running on port:', port);
   console.log('WebSockets enabled on server');
