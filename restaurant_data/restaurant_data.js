@@ -188,10 +188,8 @@ const Restaurants_Reservation = async (req, res) => {
   }
 };
 
-const add_New_Reviews = async (req, res) =>{
-  try{
-
-    ////console.log("Start add New Reviews");
+const add_New_Reviews = async (req, res) => {
+  try {
     const req_restaurant_Id = req.body.restaurant_Id;
     const user_email = req.body.user_email;
     const review_string = req.body.review;
@@ -204,7 +202,7 @@ const add_New_Reviews = async (req, res) =>{
       });
     }
 
-    const client_id = await ClientUser.findOne({ email: user_email })  
+    const client_id = await ClientUser.findOne({ email: user_email });
 
     const new_Review = new Review({
       user: client_id,
@@ -214,10 +212,8 @@ const add_New_Reviews = async (req, res) =>{
     });
   
     const saved_Review = await new_Review.save();
-    //////console.log("saved_Review",saved_Review);
   
     const restaurant = await restaurants.findById(req_restaurant_Id);
-    ////console.log("restaurant",restaurant);
     if (!restaurant) {
       return res.status(404).json({
         success: false,
@@ -225,39 +221,43 @@ const add_New_Reviews = async (req, res) =>{
       });
     }
     restaurant.reviews.push(saved_Review._id);
-
+    await restaurant.save();
     const populatedRestaurant = await restaurants.findById(req_restaurant_Id)
-    .populate('reviews');
+      .populate('reviews');
   
-  if (populatedRestaurant.reviews) {
-    let totalRating = 0;
-    let validReviewCount = 0;
-    populatedRestaurant.reviews.forEach(review => {
-      if (review.rating) {
-        totalRating += review.rating;
-        validReviewCount++;
+    if (populatedRestaurant.reviews && populatedRestaurant.reviews.length > 0) {
+      let totalRating = 0;
+      let validReviewCount = 0;
+      
+      populatedRestaurant.reviews.forEach(review => {
+        if (review.rating) {
+          totalRating += review.rating;
+          validReviewCount++;
+        }
+      });
+      
+      if (validReviewCount > 0) {
+        restaurant.rating = parseFloat((totalRating / validReviewCount).toFixed(1));
+        restaurant.number_of_rating = validReviewCount;
+        await restaurant.save();
       }
-    });
-    if (validReviewCount > 0) {
-      restaurant.rating = parseFloat((totalRating / validReviewCount).toFixed(1));
-      restaurant.number_of_rating = validReviewCount;
     }
-    //////console.log("****************************************************",totalRating,validReviewCount)
-  }
-    await restaurant.save()
+
     res.status(201).json({
       success: true,
       message: "Review added successfully",
     });
-  }catch (error) {
-  console.error("Error in add_New_Reviews:", error);
-  res.status(500).json({
-    success: false,
-    message: "Error adding review",
-    error: error.message
-  });
+    
+  } catch (error) {
+    console.error("Error in add_New_Reviews:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error adding review",
+      error: error.message
+    });
   }
 };
+
 
 
 /**
@@ -772,8 +772,6 @@ const create_Reservation = async (req, res) => {
     if (!restaurant) {
       return res.status(404).json({ success: false, message: 'Restaurant not found' });
     }
-
-    // קבלת התוצאה כ-object
     const reservationResult = date ? 
       calculateReservationDateWithDate(date, time) : 
       calculateReservationDate(day, time);
@@ -3254,6 +3252,163 @@ const generateRandomBill = async (orderId, restaurantId) => {
   }
 };
 
+
+const getAvailableTablesCount = async (req, res) => {
+  
+  const { restaurantId } = req.params;
+  const { date, guests = 2} = req.query;
+  
+  // Helper functions
+  const convertTo24Hour = (timeString) => {
+    const [timePart, meridiem] = timeString.split(' ');
+    let [hours, minutes] = timePart.split(':').map(Number);
+    
+    if (meridiem === 'PM' && hours < 12) {
+      hours += 12;
+    } else if (meridiem === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  const convertTo12Hour = (timeString) => {
+    const [hours24, minutes] = timeString.split(':').map(Number);
+    const hours12 = hours24 % 12 || 12;
+    const meridiem = hours24 >= 12 ? 'PM' : 'AM';
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${meridiem}`;
+  };
+
+  const generateTimeSlots = (openTime24h, closeTime24h) => {
+    const slots = [];
+    
+    let [openHours, openMinutes] = openTime24h.split(':').map(Number);
+    let [closeHours, closeMinutes] = closeTime24h.split(':').map(Number);
+    
+    const startTime = new Date();
+    startTime.setHours(openHours, openMinutes, 0, 0);
+    
+    const endTime = new Date();
+    endTime.setHours(closeHours, closeMinutes, 0, 0);
+    
+    const lastPossibleSlot = new Date(endTime);
+    lastPossibleSlot.setMinutes(lastPossibleSlot.getMinutes() - 90);
+    
+    const currentSlot = new Date(startTime);
+    
+    while (currentSlot <= lastPossibleSlot) {
+      const hours = currentSlot.getHours().toString().padStart(2, '0');
+      const minutes = currentSlot.getMinutes().toString().padStart(2, '0');
+      
+      const timeStr = `${hours}:${minutes}`;
+      slots.push(timeStr);
+      
+      currentSlot.setMinutes(currentSlot.getMinutes() + 30);
+    }
+    
+    return slots;
+  };
+  
+  try {
+    const restaurant = await restaurants.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'Restaurant not found' });
+    }
+    const guestsNum = parseInt(guests);
+    let maxTableSize = guestsNum+2;
+    
+    const allTables = await Table.find({
+      restaurant_id: restaurantId,
+      seats: { 
+        $gte: guestsNum,
+        $lte: maxTableSize 
+      },
+      //isActive: true
+    });
+    
+    
+    const dateObj = new Date(date);
+    const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayOfWeek = daysOfWeek[dateObj.getDay()];
+    
+    if (!restaurant.open_time || !restaurant.open_time[dayOfWeek] || 
+        restaurant.open_time[dayOfWeek].open === 'Closed') {
+      return res.json({ success: true, availability: {} });
+    }
+    
+    const dayHours = restaurant.open_time[dayOfWeek];
+    const openTime = convertTo24Hour(dayHours.open);
+    const closeTime = convertTo24Hour(dayHours.close);
+    
+    const timeSlots = generateTimeSlots(openTime, closeTime);
+    const availability = {};
+
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const existingReservations = await UserOrder.find({
+      start_time: { $gte: dayStart, $lte: dayEnd },
+      status: { $nin: ['Cancelled'] },
+      table_Id: { $in: allTables.map(t => t._id) }
+    }).select('table_Id start_time end_time');
+
+      const reservationsByTable = {};
+    existingReservations.forEach(reservation => {
+      const tableId = reservation.table_Id.toString();
+      if (!reservationsByTable[tableId]) {
+        reservationsByTable[tableId] = [];
+      }
+      reservationsByTable[tableId].push({
+        start: reservation.start_time,
+        end: reservation.end_time
+      });
+    });
+
+    for (const timeSlot of timeSlots) {
+      const reservationDate = calculateReservationDateWithDate(date, convertTo12Hour(timeSlot));
+      const startTime = reservationDate.date || reservationDate;
+      const endTime = new Date(startTime.getTime());
+      endTime.setMinutes(endTime.getMinutes() + 90);
+      
+      let availableCount = 0;
+      
+      for (const table of allTables) {
+        const tableId = table._id.toString();
+        const tableReservations = reservationsByTable[tableId] || [];
+      
+        let isAvailable = true;
+        for (const reservation of tableReservations) {
+          if (startTime < reservation.end && endTime > reservation.start) {
+            isAvailable = false;
+            break;
+          }
+        }
+        
+        if (isAvailable) {
+          availableCount++;
+        }
+      }
+      
+      availability[timeSlot] = availableCount;
+    }
+    
+    return res.json({ 
+      success: true, 
+      availability 
+    });
+    
+  } catch (error) {
+    console.error('Error getting availability:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error checking availability' 
+    });
+  }
+};
+
 module.exports = {
   all_Restaurants_Data,
   Restaurants_Reservation,
@@ -3269,5 +3424,6 @@ module.exports = {
   update_Restaurant_Menu,
   get_all_bills_for_Restaurants,
   get_all_bills_for_user,
+  getAvailableTablesCount,
 };
   

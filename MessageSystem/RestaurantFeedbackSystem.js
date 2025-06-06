@@ -13,6 +13,7 @@ const generateFeedbackLink = (order) => {
 
 // Function to generate personalized email message
 function generateFeedbackMessage(order) {
+  console.log(order)
   const link = generateFeedbackLink(order);
   // Check how to access client and restaurant data in your order model
   // These fields might have different names in your schema
@@ -30,7 +31,7 @@ function generateFeedbackMessage(order) {
   
   return `
 Hello ${clientName},
-
+${order}
 Thank you for dining with us at ${restaurantName}!
 
 We hope you enjoyed your experience with us. Your feedback is important to us and helps us continuously improve our service.
