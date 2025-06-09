@@ -1,6 +1,10 @@
 const cron = require('node-cron');
 const { sendMail } = require('../MessageSystem/email_message');
 const UserOrder = require('../models/User_Order');
+const ClientGuest = require('../models/ClientGuest');
+const ClientUser = require('../models/Client_User');
+const restaurants = require('../models/Restarunt')
+
 
 const dotenv = require('dotenv');
 dotenv.config();
@@ -12,26 +16,26 @@ const generateFeedbackLink = (order) => {
 };
 
 // Function to generate personalized email message
-function generateFeedbackMessage(order) {
+async function generateFeedbackMessage(order) {
   console.log(order)
   const link = generateFeedbackLink(order);
-  // Check how to access client and restaurant data in your order model
-  // These fields might have different names in your schema
-  const clientName = order.client_id ? (order.client_id.firstName || 'Valued Customer') : 'Valued Customer';
-  
-  // Check which field holds the restaurant name in your schema
-  let restaurantName = 'our restaurant';
-  if (order.restaurant) {
-    restaurantName = order.restaurant.name || 'our restaurant';
-  } else if (order.restaurantId) {
-    restaurantName = order.restaurantId.name || 'our restaurant';
-  } else if (order.restaurant_name) {
-    restaurantName = order.restaurant_name;
+  let user;
+  if (order.client_type === 'ClientUser') {
+          user = await ClientGuest.findById(order.client_id._id);
+        } else if (order.client_type === 'ClientGuest') {
+          user = await ClientGuest.findById(order.client_id);
+        }
+
+  const clientName = user.first_name ? (user.first_name || 'Customer') : 'Customer';
+  const restaurantData = await restaurants.findById(order.restaurant)
+
+  let restaurantName = restaurantData.res_name;
+  if (restaurantName) {
+    restaurantName = 'our restaurant';
   }
   
   return `
 Hello ${clientName},
-${order}
 Thank you for dining with us at ${restaurantName}!
 
 We hope you enjoyed your experience with us. Your feedback is important to us and helps us continuously improve our service.
@@ -52,13 +56,11 @@ The Restaurant Team
 async function sendRestaurantFeedbackEmails() {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-
   const startOfYesterday = new Date(yesterday.setHours(0, 0, 0, 0));
   const endOfYesterday = new Date(yesterday.setHours(23, 59, 59, 999));
-
+  
+  
   try {
-    // Adjust this query based on your schema structure
-    // Find all orders from yesterday with status 'Done' or 'Seated'
     const orders = await UserOrder.find({
       start_time: {
         $gte: startOfYesterday,
@@ -72,7 +74,6 @@ async function sendRestaurantFeedbackEmails() {
       match: { email: { $exists: true, $ne: null } },
       select: 'email firstName lastName'
     });
-    
     // Filter out orders without valid client email
     const validOrders = orders.filter(order =>
       order.client_id &&
@@ -80,11 +81,9 @@ async function sendRestaurantFeedbackEmails() {
       order.client_id.email.trim() !== ''
     );
 
-    //console.log(`Found ${validOrders.length} valid orders from yesterday to send feedback emails`);
-
-    // Send emails to each valid customer
     const emailPromises = validOrders.map(async (order) => {
-      const feedbackMessage = generateFeedbackMessage(order);
+      
+      const feedbackMessage = await generateFeedbackMessage(order);
       const email = order.client_id.email;
 
       try {

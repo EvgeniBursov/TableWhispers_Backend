@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { sendTotpCodeForClientUser,verifyTotpCode,changeClientPassword } = require('../controllers/auth')
+const { sendTotpCodeForClientUser,verifyTotpCode,changeClientPassword,  changeResPassword, sendUserName,
+  checkResUser } = require('../controllers/auth')
 const { sendMail } = require('../MessageSystem/email_message')
 const { googleAuth } = require('../controllers/google_auth')
  
@@ -18,6 +19,10 @@ router.post('/resetClientPassword',changeClientPassword);
 router.post('/forgetPassword',sendMail)
 
 router.post('/google_auth', googleAuth);
+
+router.post('/changeResPassword', changeResPassword);
+
+router.post('/sendUserName', sendUserName);
 
 
 module.exports = router;

@@ -20,7 +20,7 @@ async function sendRestaurantReminderEmails() {
       },
       status: { $in: ['Planning'] } // Status changed to "Planning"
     }).populate('restaurant','res_name phone_number full_address');
-
+    
     // Process each order individually
     const emailPromises = orders.map(async (order) => {
       if (!order.client_id) {
@@ -98,7 +98,7 @@ function generateReminderMessage(order) {
 
 
 function scheduleDailyReminderEmails() {
-  cron.schedule('30 10 * * *', async () => {
+  cron.schedule('0 09 * * *', async () => {
     //console.log('Triggering scheduled reminder emails...');
     await sendRestaurantReminderEmails();
   });

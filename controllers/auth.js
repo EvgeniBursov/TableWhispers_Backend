@@ -50,10 +50,10 @@ const sendTotpCodeForClientUser = async (req, res) => {
         await restaurantUser.save();
         const totp_token = authenticator.generate(restaurantUser.totpSecret);
         sendMail(req_email, totp_token,'totp')
-        return res.status(200).json({ 'restaurantUser': logUser});
+        return res.status(200).json({ 'restaurantUser': restaurantUser});
       } catch (err) {
         console.error(err);
-        return res.status(500).json({ 'error': 'Fail checking user' });
+        return res.status(500).json({ 'error': 'Fail checking Restaurant user' });
       }
     }
     else{
@@ -174,13 +174,13 @@ const checkResUser = async (req, res) => {
 
 const sendUserName = async (req, res) =>{
   var req_email = req.body.email;
-
   try{
     const user = await ResUser.findOne({'email': req_email})
     if (!user) {
       return res.status(300).json({ 'error': 'Incorrect user' });
     }
     sendMail(req_email,user.user_name,'username')
+    return res.status(200).json({ 'succes': 'username' });
   }catch(err){
     //console.log(err,"in catch")
     return (res,err)
@@ -195,7 +195,7 @@ const changeResPassword = async (req, res) => {
   var req_confirm_pass = req.body.confirm_password;
 
  try{
-    const user = await ResUser.findOne({'email': req_email})
+    var user = await ResUser.findOne({'email': req_email})
     if (!user) {
       return res.status(300).json({ 'error': 'Incorrect user' });
     }
@@ -221,9 +221,9 @@ try{
   const encryptedPwd = await bcrypt.hash(req_pass,salt)
   user.password = encryptedPwd;
   await user.save();
-  res.status(200).send(user);
+  return res.status(200).json({ 'succes': 'user' });
 }catch(err){
-  res.status(400).send(err);
+  return res.status(400).json({ 'error': 'change Res Password not completed' })
 }
 }
 
@@ -244,4 +244,7 @@ module.exports = {
   sendTotpCodeForClientUser,
   verifyTotpCode,
   changeClientPassword,
+  changeResPassword,
+  sendUserName,
+  checkResUser
  };
