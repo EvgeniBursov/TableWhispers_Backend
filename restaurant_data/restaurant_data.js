@@ -1072,7 +1072,7 @@ Time: ${formattedStartTime} to ${formattedEndTime}.
 Best regards,
 Table Whispers`;
 
-    sendMail(userEmail, emailMessage, 'order_info');
+    //sendMail(userEmail, emailMessage, 'order_info');
     return res.status(200).json({
       success: true,
       message: "Reservation created successfully",
