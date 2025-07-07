@@ -5,9 +5,13 @@ const {all_Restaurants_Data, Restaurants_Reservation, add_New_Reviews,
     check_Availability,create_Reservation, get_Available_Times, update_Reservation_Status,
     update_Reservation_Details,get_Customer_Reservation_History,get_Restaurant_Clients,
     get_Restaurant_Menu, update_Restaurant_Menu, get_all_bills_for_Restaurants,  get_all_bills_for_user, getAvailableTablesCount,
+    getBatchAvailability,getRestaurantsWithAvailability
 } = require('../restaurant_data/restaurant_data')
 
 
+router.post('/batch-availability', getBatchAvailability)
+
+router.get('/restaurants/with-availability', getRestaurantsWithAvailability);
 
 router.get('/all_Restaurants_Data', all_Restaurants_Data);
 
@@ -31,9 +35,6 @@ router.get('/get_Customer_Reservation_History/restaurant/', get_Customer_Reserva
 
 router.get('/get_Restaurant_Clients/restaurant/:id', get_Restaurant_Clients);
 
-
-
-
 router.get('/get_Restaurant_Menu/restaurant/:id', get_Restaurant_Menu);
 
 router.post('/update_Restaurant_Menu/restaurant/:id', update_Restaurant_Menu);
@@ -42,8 +43,5 @@ router.post('/get_all_bills_for_Restaurants/restaurant/', get_all_bills_for_Rest
 
 router.post('/get_all_bills_for_user/order/:id', get_all_bills_for_user);
 
-
 router.get('/restaurant/:restaurantId/availability', getAvailableTablesCount);
-
-
 module.exports = router;

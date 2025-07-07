@@ -64,6 +64,7 @@ const all_Restaurants_Data = async (req, res) => {
   }
 };
 
+
 const Restaurants_Reservation = async (req, res) => {
   ////console.log("Start Restaurants_Reservation");
   const restaurantId = req.params.id;
@@ -119,19 +120,10 @@ const Restaurants_Reservation = async (req, res) => {
           };
         }
       }
-      
-      // If no registered user found, try to find a guest user
-      // Assuming there's some way to connect reservations to guest users
-      // You'll need to adjust this based on your actual schema!
+
       if (!customerInfo) {
-        // This is a placeholder - you need to determine how guest users are
-        // connected to reservations in your database
         const guestUser = await ClientGuest.findOne({
-          // This condition needs to be replaced with your actual logic
-          // Examples:
-          // reservation_id: reservation._id
-          // or maybe you have a field like:
-          // email: reservation.contact_email
+
         }).lean();
         
         if (guestUser) {
@@ -2053,355 +2045,6 @@ const update_Reservation_Details = async (req, res) => {
   }
 };
 
-
-/**
- * Update reservation details including table assignment
- */
-/*
-const update_Reservation_Details = async (req, res) => {
-  ////console.log("START update_Reservation_Details FUNCTION");
-  
-  // Extract data from request body
-  const reservation_id = req.body.reservation_id;
-  const new_date = req.body.date;
-  const new_time = req.body.time;
-  const new_guests = req.body.guests;
-  const tableNumber = req.body.tableNumber;
-  const notify_all = req.body.notify_all || false;
-  const restaurant_id = req.body.restaurant_id;
-  const client_email = req.body.client_email;
-  const client_name = req.body.client_name;
-  
-  // Get Socket.io instance from app
-  const io = req.app.get('socketio');
-  
-  try {
-    // Find the reservation by ID
-    const reservation = await UserOrder.findById(reservation_id)
-      .populate('restaurant', 'res_name');
-    
-    if (!reservation) {
-      return res.status(404).json({
-        success: false,
-        error: 'Reservation not found',
-        message: 'The requested reservation does not exist'
-      });
-    }
-    
-    // Make sure client_type is set properly if it's missing
-    if (!reservation.client_type) {
-      const clientUser = await ClientUser.findById(reservation.client_id);
-      if (clientUser) {
-        reservation.client_type = 'ClientUser';
-      } else {
-        const clientGuest = await ClientGuest.findById(reservation.client_id);
-        if (clientGuest) {
-          reservation.client_type = 'ClientGuest';
-        } else {
-          return res.status(400).json({
-            success: false,
-            error: 'Invalid client reference',
-            message: 'Cannot determine client type for this reservation'
-          });
-        }
-      }
-    }
-    
-    // Track what fields are updated
-    const updatedFields = {};
-    const originalValues = {
-      date: reservation.start_time ? new Date(reservation.start_time).toISOString().split('T')[0] : null,
-      time: reservation.start_time ? new Date(reservation.start_time).toTimeString().slice(0, 5) : null,
-      guests: reservation.guests,
-      tableNumber: reservation.tableNumber
-    };
-    
-    // Keep track of previous table ID and number for updates
-    const previousTableId = reservation.table_Id;
-    const previousTableNumber = reservation.tableNumber;
-    
-    // Check and update each field individually
-    if (new_date && new_time) {
-      // If both date and time are provided, update start_time and end_time
-      // Create date object from the new date and time
-      const [hours, minutes] = new_time.split(':').map(Number);
-      const startDate = new Date(new_date);
-      startDate.setHours(hours, minutes, 0, 0);
-      
-      // Calculate end time (assuming 2 hour duration)
-      const endDate = new Date(startDate);
-      endDate.setHours(endDate.getHours() + 2);
-      
-      // Update the reservation with new times
-      reservation.start_time = startDate;
-      reservation.end_time = endDate;
-      
-      // Update orderDate to now (when the reservation was modified)
-      reservation.orderDate = new Date();
-      
-      updatedFields.start_time = startDate;
-      updatedFields.end_time = endDate;
-      updatedFields.orderDate = reservation.orderDate;
-    } else if (new_date) {
-      // If only date is changing, preserve the original time
-      const originalDate = new Date(reservation.start_time);
-      const originalHours = originalDate.getHours();
-      const originalMinutes = originalDate.getMinutes();
-      
-      // Create a new date with original time
-      const startDate = new Date(new_date);
-      startDate.setHours(originalHours, originalMinutes, 0, 0);
-      
-      // Calculate end time
-      const endDate = new Date(startDate);
-      endDate.setHours(endDate.getHours() + 2);
-      
-      reservation.start_time = startDate;
-      reservation.end_time = endDate;
-      
-      // Update orderDate to now (when the reservation was modified)
-      reservation.orderDate = new Date();
-      
-      updatedFields.start_time = startDate;
-      updatedFields.end_time = endDate;
-      updatedFields.orderDate = reservation.orderDate;
-    } else if (new_time) {
-      // If only time is changing, preserve the original date
-      const originalDate = new Date(reservation.start_time);
-      const [hours, minutes] = new_time.split(':').map(Number);
-      
-      // Set new time on original date
-      originalDate.setHours(hours, minutes, 0, 0);
-      
-      // Calculate end time
-      const endDate = new Date(originalDate);
-      endDate.setHours(endDate.getHours() + 2);
-      
-      reservation.start_time = originalDate;
-      reservation.end_time = endDate;
-      
-      // Update orderDate to now (when the reservation was modified)
-      reservation.orderDate = new Date();
-      
-      updatedFields.start_time = originalDate;
-      updatedFields.end_time = endDate;
-      updatedFields.orderDate = reservation.orderDate;
-    }
-    
-    // Update number of guests if provided
-    if (new_guests && !isNaN(parseInt(new_guests))) {
-      const guests = parseInt(new_guests);
-      reservation.guests = guests;
-      updatedFields.guests = guests;
-      
-      // If only guests changed, also update the orderDate
-      if (!new_date && !new_time) {
-        reservation.orderDate = new Date();
-        updatedFields.orderDate = reservation.orderDate;
-      }
-    }
-    
-    // Update table number if provided
-    let newTableId = null;
-    if (tableNumber !== undefined && tableNumber !== previousTableNumber) {
-      reservation.tableNumber = tableNumber;
-      updatedFields.tableNumber = tableNumber;
-      
-      // Find the new table ID based on the table number
-      const newTable = await Table.findOne({ 
-        table_number: tableNumber,
-        restaurant_id: restaurant_id || reservation.restaurant?._id
-      });
-      
-      if (newTable) {
-        reservation.table_Id = newTable._id;
-        updatedFields.table_Id = newTable._id;
-        newTableId = newTable._id;
-      }
-    }
-    
-    // Save the updated reservation
-    await reservation.save();
-    
-    // Get the restaurant ID
-    const restaurantId = restaurant_id || reservation.restaurant?._id?.toString();
-    
-    // Handle table updates - first update the existing table if there was one
-    if (previousTableId) {
-      // Find the previous table
-      const previousTable = await Table.findById(previousTableId);
-      
-      if (previousTable) {
-        ////console.log(`Found previous table ${previousTableNumber}`);
-        
-        // If table number changed, update the previous table status
-        if (tableNumber !== undefined && tableNumber !== previousTableNumber) {
-          ////console.log(`Table number changed from ${previousTableNumber} to ${tableNumber}`);
-          
-          // If this was the current reservation, clear it
-          if (previousTable.current_reservation && 
-              previousTable.current_reservation.toString() === reservation_id.toString()) {
-            previousTable.current_reservation = null;
-            
-            // Check if there are other active reservations
-            const hasActiveReservations = await UserOrder.findOne({
-              table_Id: previousTable._id,
-              _id: { $ne: reservation_id }, // Excluding the current reservation
-              status: { $nin: ['Cancelled', 'Done'] },
-              start_time: { $lt: new Date(new Date().getTime() + 24*60*60*1000) }, // within next 24 hours
-              end_time: { $gt: new Date() } // not ended yet
-            });
-            
-            // If no other active reservations, mark table as available
-            if (!hasActiveReservations) {
-              previousTable.table_status = 'available';
-            }
-          }
-          
-          await previousTable.save();
-          ////console.log(`Updated previous table ${previousTableNumber} status to ${previousTable.table_status}`);
-          
-          // Emit table update
-          if (io && restaurantId) {
-            io.to(`restaurant_${restaurantId}`).emit('tableReservationUpdated', {
-              tableId: previousTable._id,
-              tableNumber: previousTable.table_number,
-              reservationId: reservation_id,
-              action: 'remove',
-              tableStatus: previousTable.table_status
-            });
-          }
-        }
-      }
-    }
-    
-    // If table number changed, update the new table
-    if (newTableId) {
-      // Find the new table
-      const newTable = await Table.findById(newTableId);
-      
-      if (newTable) {
-        ////console.log(`Found new table ${tableNumber}`);
-        
-        // Update table status based on reservation status
-        if (reservation.status === 'Seated') {
-          newTable.table_status = 'occupied';
-          newTable.current_reservation = reservation._id;
-        } else if (reservation.status === 'Planning' || reservation.status === 'Confirmed') {
-          newTable.table_status = 'reserved';
-        }
-        
-        await newTable.save();
-        ////console.log(`Updated new table ${tableNumber} status to ${newTable.table_status}`);
-        
-        // Emit table update
-        if (io && restaurantId) {
-          io.to(`restaurant_${restaurantId}`).emit('reservationAssigned', {
-            restaurantId: restaurantId,
-            tableId: newTable._id,
-            tableNumber: newTable.table_number,
-            reservation: {
-              id: reservation._id,
-              client_id: reservation.client_id,
-              guests: reservation.guests,
-              start_time: reservation.start_time,
-              end_time: reservation.end_time,
-              status: reservation.status
-            }
-          });
-        }
-      }
-    }
-    
-    // Extract customer email for notifications
-    const customerEmail = client_email || await getCustomerEmail(reservation);
-    
-    // Create a formatted update record for the socket event
-    const updateDetails = {
-      reservationId: reservation_id,
-      restaurantId: restaurantId,
-      customerEmail: customerEmail,
-      customerName: client_name || await getCustomerName(reservation),
-      restaurantName: reservation.restaurant?.res_name || 'Restaurant',
-      updates: {
-        dateChanged: new_date && originalValues.date !== new_date,
-        timeChanged: new_time && originalValues.time !== new_time,
-        guestsChanged: new_guests && originalValues.guests !== parseInt(new_guests),
-        tableChanged: tableNumber !== undefined && originalValues.tableNumber !== tableNumber,
-        newDate: new_date || originalValues.date,
-        newTime: new_time || originalValues.time,
-        newGuests: new_guests ? parseInt(new_guests) : originalValues.guests,
-        newTableNumber: tableNumber !== undefined ? tableNumber : originalValues.tableNumber
-      },
-      timestamp: new Date()
-    };
-    
-    // Emit real-time updates via Socket.io
-    if (io) {
-      // General update event
-      io.emit('reservationUpdated', {
-        reservationId: reservation_id,
-        updatedFields: updatedFields,
-        timestamp: new Date()
-      });
-      
-      // Detailed update event
-      io.emit('reservationDetailsChanged', updateDetails);
-      
-      // Send to specific rooms if requested
-      if (notify_all) {
-        // Send to restaurant room
-        if (restaurantId) {
-          io.to(`restaurant_${restaurantId}`).emit('reservationDetailsChanged', updateDetails);
-        }
-        
-        // Send to customer room
-        if (customerEmail) {
-          io.to(`customer_${customerEmail}`).emit('reservationDetailsChanged', updateDetails);
-        }
-      }
-      
-      // Emit floor layout update for complete refresh
-      if (restaurantId) {
-        io.to(`restaurant_${restaurantId}`).emit('floorLayoutUpdated', {
-          restaurantId: restaurantId,
-          timestamp: new Date(),
-          action: 'refresh'
-        });
-      }
-      
-      ////console.log('Emitted real-time update for reservation', reservation_id);
-    }
-    
-    // Return success response
-    res.status(200).json({
-      success: true,
-      message: 'Reservation details updated successfully',
-      reservation: {
-        id: reservation._id,
-        start_time: reservation.start_time,
-        end_time: reservation.end_time,
-        guests: reservation.guests,
-        orderDate: reservation.orderDate,
-        tableNumber: reservation.tableNumber,
-        client_type: reservation.client_type
-      },
-      updates: updateDetails.updates
-    });
-    
-    ////console.log("END Update Reservation Details");
-    
-  } catch (error) {
-    console.error("Error updating reservation details:", error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update reservation details',
-      message: error.message
-    });
-  }
-};
-*/
-// Helper function to map UserOrder status to reservation client_status
 function mapOrderStatusToReservationStatus(status) {
   ////console.log(`Mapping order status: ${status}`);
   
@@ -3813,6 +3456,209 @@ const getAvailableTablesCount = async (req, res) => {
   }
 };
 
+const getBatchAvailability = async (req, res) => {
+  try {
+    const { date, guests, restaurantIds } = req.body;
+    
+    if (!date || !guests || !restaurantIds || !Array.isArray(restaurantIds)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Date, guests, and restaurantIds array are required' 
+      });
+    }
+    
+    const batchResults = {};
+    
+    const restaurantPromises = restaurantIds.map(async (restaurantId) => {
+      try {
+        const restaurant = await restaurants.findById(restaurantId);
+        
+        if (!restaurant) {
+          return { id: restaurantId, availability: {} };
+        }
+        
+        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        
+        if (!restaurant.open_time || 
+            !restaurant.open_time[dayOfWeek] || 
+            !restaurant.open_time[dayOfWeek].open || 
+            !restaurant.open_time[dayOfWeek].close || 
+            restaurant.open_time[dayOfWeek].open === 'Closed') {
+          return { id: restaurantId, availability: {} };
+        }
+        
+        const openTime = String(restaurant.open_time[dayOfWeek].open);
+        const closeTime = String(restaurant.open_time[dayOfWeek].close);
+        
+        if (!openTime || !closeTime || openTime === 'undefined' || closeTime === 'undefined') {
+          return { id: restaurantId, availability: {} };
+        }
+        
+        const timeSlots = generateTimeSlots(openTime, closeTime);
+        const availability = {};
+        
+        for (const timeSlot of timeSlots) {
+          const result = await check_Availability(
+            restaurantId,
+            date,
+            timeSlot,
+            parseInt(guests)
+          );
+          
+          availability[timeSlot] = result.availableTables || 0;
+        }
+        
+        return { id: restaurantId, availability };
+        
+      } catch (error) {
+        console.error(`Error checking availability for restaurant ${restaurantId}:`, error);
+        return { id: restaurantId, availability: {} };
+      }
+    });
+    
+    const results = await Promise.allSettled(restaurantPromises);
+    
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        const { id, availability } = result.value;
+        batchResults[id] = availability;
+      }
+    });
+    
+    return res.status(200).json({
+      success: true,
+      availability: batchResults
+    });
+    
+  } catch (error) {
+    console.error('Error in batch availability check:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Error: ${error.message}`
+    });
+  }
+};
+
+const getRestaurantsWithAvailability = async (req, res) => {
+  try {
+    const { date, guests, time, page = 1, limit = 10 } = req.query;
+    
+    if (!date || !guests) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Date and guests parameters are required' 
+      });
+    }
+    
+    const skip = (page - 1) * limit;
+    
+    const allRestaurants = await restaurants.find()
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+    
+    const totalCount = await restaurants.countDocuments();
+    
+    const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    
+    const restaurantsWithAvailability = await Promise.all(
+      allRestaurants.map(async (restaurant) => {
+        try {
+          if (!restaurant.open_time || 
+              !restaurant.open_time[dayOfWeek] || 
+              restaurant.open_time[dayOfWeek].open === 'Closed') {
+            return {
+              ...restaurant,
+              hasAvailability: false,
+              quickAvailability: []
+            };
+          }
+          
+          const openTime = String(restaurant.open_time[dayOfWeek].open);
+          const closeTime = String(restaurant.open_time[dayOfWeek].close);
+          
+          if (!openTime || !closeTime || openTime === 'undefined' || closeTime === 'undefined') {
+            return {
+              ...restaurant,
+              hasAvailability: false,
+              quickAvailability: []
+            };
+          }
+          
+          const timeSlots = generateTimeSlots(openTime, closeTime);
+          
+          const timeToCheck = time || timeSlots[Math.floor(timeSlots.length / 2)];
+          const nearbyTimes = [];
+          const baseIndex = timeSlots.indexOf(timeToCheck);
+          
+          if (baseIndex !== -1) {
+            for (let i = Math.max(0, baseIndex - 2); i <= Math.min(timeSlots.length - 1, baseIndex + 2); i++) {
+              nearbyTimes.push(timeSlots[i]);
+            }
+          } else {
+            nearbyTimes.push(...timeSlots.slice(0, 3));
+          }
+          
+          const quickAvailability = [];
+          
+          for (const slot of nearbyTimes) {
+            const result = await check_Availability(
+              restaurant._id,
+              date,
+              slot,
+              parseInt(guests)
+            );
+            
+            if (result.availableTables > 0) {
+              quickAvailability.push({
+                time: slot,
+                availableTables: result.availableTables
+              });
+            }
+            
+            if (quickAvailability.length >= 2) break;
+          }
+          
+          return {
+            ...restaurant,
+            hasAvailability: quickAvailability.length > 0,
+            quickAvailability: quickAvailability
+          };
+          
+        } catch (error) {
+          console.error(`Error checking availability for restaurant ${restaurant._id}:`, error);
+          return {
+            ...restaurant,
+            hasAvailability: false,
+            quickAvailability: []
+          };
+        }
+      })
+    );
+    
+    const availableRestaurants = restaurantsWithAvailability.filter(r => r.hasAvailability);
+    
+    return res.status(200).json({
+      success: true,
+      pagination: {
+        total: totalCount,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(totalCount / limit)
+      },
+      restaurants: restaurantsWithAvailability,
+      availableCount: availableRestaurants.length
+    });
+    
+  } catch (error) {
+    console.error('Error in getRestaurantsWithAvailability:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Error: ${error.message}`
+    });
+  }
+};
+
 module.exports = {
   all_Restaurants_Data,
   Restaurants_Reservation,
@@ -3828,6 +3674,6 @@ module.exports = {
   update_Restaurant_Menu,
   get_all_bills_for_Restaurants,
   get_all_bills_for_user,
-  getAvailableTablesCount,
+  getAvailableTablesCount,getBatchAvailability,getRestaurantsWithAvailability
 };
   

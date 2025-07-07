@@ -5,7 +5,22 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:login": "jest tests/client_login_controller.test.js",
+    "test:register": "jest tests/client_register_controller.test.js", 
+    "test:routes": "jest tests/routes.test.js",
+    "test:res-login": "jest tests/res_login_controller.test.js",
+    "test:profile": "jest tests/client_profile_controller.test.js",
+    "test:profile-routes": "jest tests/client_profile_routes.test.js",
+    "test:restaurant-data": "jest tests/restaurant_data_controller.test.js",
+    "test:restaurant-routes": "jest tests/restaurant_routes.test.js",
+    "test:chat": "jest tests/chat_*.test.js",
+    "test:chat-routes": "jest tests/chat_routes.test.js",
+    "test:chat-system": "jest tests/chat_system.test.js",
+    "test:chat-integration": "jest tests/chat_integration.test.js",
+    "test:chat-all": "jest tests/chat_routes.test.js tests/chat_system.test.js tests/chat_integration.test.js",
     "dev": "nodemon app.js"
   },
   "author": "",
@@ -31,6 +46,36 @@
     "username-generator": "^1.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "@types/jest": "^30.0.0",
+    "jest": "^30.0.4",
+    "mongodb-memory-server": "^10.1.4",
+    "nodemon": "^3.1.9",
+    "supertest": "^7.1.1"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+    "collectCoverageFrom": [
+      "controllers/**/*.js", 
+      "routes/**/*.js",
+      "MessageSystem/**/*.js",
+      "!controllers/auth.js"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov", 
+      "html"
+    ],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "clearMocks": true,
+    "resetMocks": true,
+    "restoreMocks": true,
+    "testTimeout": 15000,
+    "maxWorkers": 2,
+    "detectOpenHandles": true,
+    "forceExit": true
   }
 }
