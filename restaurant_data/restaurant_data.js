@@ -3674,6 +3674,8 @@ module.exports = {
   update_Restaurant_Menu,
   get_all_bills_for_Restaurants,
   get_all_bills_for_user,
-  getAvailableTablesCount,getBatchAvailability,getRestaurantsWithAvailability
+  getAvailableTablesCount,
+  getBatchAvailability,
+  getRestaurantsWithAvailability
 };
   
