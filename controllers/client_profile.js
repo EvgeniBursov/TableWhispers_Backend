@@ -6,7 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-//const { io } = require('../app')
+const { io } = require('../app')
 
 const profileImagesDir = path.join(__dirname, '../public/profile_images/');
 
