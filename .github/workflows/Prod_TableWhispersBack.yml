@@ -234,13 +234,6 @@ jobs:
           npm run build --if-present
           echo "✅ Build completed successfully"
 
-      - name: Install production dependencies only
-        run: |
-          echo "📦 Installing production dependencies..."
-          rm -rf node_modules
-          npm install --production --silent
-          echo "✅ Production dependencies installed"
-
       - name: Create optimized deployment package
         run: |
           echo "📦 Creating deployment package..."
@@ -248,44 +241,56 @@ jobs:
           # Create clean deployment directory
           mkdir -p deployment-package
           
-          # Copy core application files
-          cp -r node_modules deployment-package/ 2>/dev/null || echo "node_modules directory created"
-          cp package*.json deployment-package/
+          # Copy ALL application files except unnecessary ones
+          echo "🗂️ Copying all application files..."
+          cp -r . deployment-package/
           
-          # Copy application source code
-          for dir in controllers routes models MessageSystem middleware config public views; do
-            if [ -d "$dir" ]; then
-              cp -r "$dir" deployment-package/
-              echo "✅ Copied $dir"
-            else
-              echo "⚠️ $dir not found"
-            fi
-          done
+          # Remove unnecessary files and folders from deployment package
+          echo "🧹 Cleaning up unnecessary files..."
+          cd deployment-package
           
-          # Copy main application entry points
-          for file in app.js server.js index.js; do
-            if [ -f "$file" ]; then
-              cp "$file" deployment-package/
-              echo "✅ Copied $file"
-            fi
-          done
+          # Remove development and CI files
+          rm -rf .git
+          rm -rf .github
+          rm -rf coverage
+          rm -rf test-results*
+          rm -rf junit.xml
+          rm -rf audit-results.json
+          rm -f .gitignore
+          rm -f .eslintrc*
+          rm -f .prettierrc*
+          rm -f jest.config*
+          rm -f *.test.js
+          rm -rf tests/
+          rm -rf __tests__/
           
-          # Copy configuration files
-          for file in .env web.config .nvmrc; do
-            if [ -f "$file" ]; then
-              cp "$file" deployment-package/
-              echo "✅ Copied $file"
-            fi
-          done
+          # Remove any cache directories
+          find . -name ".cache" -type d -exec rm -rf {} + 2>/dev/null || true
+          find . -name "*.log" -type f -exec rm -f {} + 2>/dev/null || true
           
+          cd ..
+
+      - name: Install production dependencies only
+        run: |
+          echo "📦 Installing production dependencies..."
+          cd deployment-package
+          rm -rf node_modules
+          npm install --production --silent
+          echo "✅ Production dependencies installed"
+          cd ..
+
+      - name: Finalize deployment package
+        run: |
           # Create deployment info
+          cd deployment-package
           echo "{
             \"deployment_time\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
             \"git_commit\": \"${{ github.sha }}\",
             \"git_branch\": \"${{ github.ref_name }}\",
             \"build_number\": \"${{ github.run_number }}\",
             \"version\": \"$(npm version --json | jq -r '.\"tablewhispers_backend_PROD\" // \"1.0.0\"')\"
-          }" > deployment-package/deployment-info.json
+          }" > deployment-info.json
+          cd ..
           
           echo "📋 Deployment package contents:"
           ls -la deployment-package/
