@@ -238,12 +238,13 @@ jobs:
         run: |
           echo "📦 Creating deployment package..."
           
-          # Create clean deployment directory
-          mkdir -p deployment-package
-          
-          # Copy ALL application files except unnecessary ones
+          # Copy ALL application files to a temporary location first
           echo "🗂️ Copying all application files..."
-          cp -r . deployment-package/
+          mkdir -p ../temp-deployment
+          cp -r . ../temp-deployment/
+          
+          # Now move it to the final location
+          mv ../temp-deployment ./deployment-package
           
           # Remove unnecessary files and folders from deployment package
           echo "🧹 Cleaning up unnecessary files..."
