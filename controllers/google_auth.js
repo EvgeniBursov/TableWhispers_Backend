@@ -9,7 +9,6 @@ const client = new OAuth2Client(CLIENT_ID);
 
 const googleAuth = async (req, res) => {
   const { token, user_type } = req.body;
-  
   if (!token) {
     return res.status(400).json({ error: 'Google token is required' });
   }
@@ -41,8 +40,6 @@ const googleAuth = async (req, res) => {
         user_type: user_type || 'Client',
         googleId,
         profileImage: picture,
-        // Generate a secure random password for the user
-        // They won't need to know this as they'll login with Google
         password: require('crypto').randomBytes(16).toString('hex'),
         phone_number: '', 
         age: 18, 

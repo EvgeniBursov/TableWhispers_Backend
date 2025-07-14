@@ -1,10 +1,8 @@
 const ClientUser = require('../models/Client_User')
 const bcrypt = require('bcryptjs');
 const { createToken } = require('./auth');
-//TODO תנאי שימוש חסרים
 
 const createNewUser = async (req, res) => {
-  //need add checking correct pass number age ...
   //console.log("Start Create New User")
   var req_email = req.body.email;
   var req_first_name = req.body.first_name;
@@ -14,7 +12,6 @@ const createNewUser = async (req, res) => {
   var req_pass = req.body.password;
   var req_confirm_pass = req.body.confirm_password;
   const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
- // const check = validatRegister(req_email, req_first_name, req_last_name, req_age, req_phone_number, req_pass, req_confirm_pass)
   
   if (req_first_name.length < 2 || req_last_name.length < 2) {
     return res.status(400).json({ 'error': 'the first name or last name cant be smaller of 2' })
@@ -70,8 +67,6 @@ const createNewUser = async (req, res) => {
     res.status(400).send(err);
   }
 }
-
-
 
 function validatRegister(email, first_name, last_name, age, phone_number, password, confirm_password) {
 

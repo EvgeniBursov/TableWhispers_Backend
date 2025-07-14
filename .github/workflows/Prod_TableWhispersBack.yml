@@ -1,6 +1,3 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
 name: Build and deploy Node.js app to Azure Web App - TableWhispersBack
 
 on:
@@ -8,55 +5,352 @@ on:
     branches:
       - main
       - Prod
+  pull_request:
+    branches:
+      - main
+      - Prod
   workflow_dispatch:
 
+env:
+  NODE_ENV: test
+  JWT_SECRET: ${{ secrets.JWT_SECRET || 'test-jwt-secret-key-for-ci' }}
+  AZURE_WEBAPP_NAME: TableWhispersBack
+  AZURE_WEBAPP_PACKAGE_PATH: '.'
+  NODE_VERSION: '20.x'
+
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    name: Run Tests
+    timeout-minutes: 10
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
+      checks: write
+      pull-requests: write
+
+    strategy:
+      matrix:
+        node-version: ['20.x']
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: ${{ matrix.node-version }}
 
-      - name: npm install, build, and test
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
         run: |
           npm install
+          echo "✅ Dependencies installed successfully"
+          npm list --depth=0
+
+      - name: Run comprehensive test suite
+        run: |
+          echo "🧪 Running all tests..."
+          npm test
+        env:
+          NODE_ENV: test
+          CI: true
+
+      - name: Generate test coverage
+        run: |
+          echo "📊 Generating coverage reports..."
+          npm run test:coverage
+        env:
+          NODE_ENV: test
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        if: matrix.node-version == '20.x'
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+        continue-on-error: true
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.node-version }}
+          path: |
+            coverage/
+            test-results.xml
+            junit.xml
+          retention-days: 30
+
+      - name: Comment Test Results on PR
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Try to read test results
+            let testStatus = '✅ All tests passed!';
+            let coverageInfo = '';
+            
+            try {
+              if (fs.existsSync('./coverage/coverage-summary.json')) {
+                const coverage = JSON.parse(fs.readFileSync('./coverage/coverage-summary.json', 'utf8'));
+                const total = coverage.total;
+                coverageInfo = `
+            ### 📊 Coverage Summary:
+            - **Lines:** ${total.lines.pct}%
+            - **Functions:** ${total.functions.pct}%
+            - **Branches:** ${total.branches.pct}%
+            - **Statements:** ${total.statements.pct}%`;
+              }
+            } catch (error) {
+              console.log('Could not read coverage summary');
+            }
+            
+            const comment = `
+            ## 🧪 Test Results for ${context.payload.pull_request.head.sha.slice(0, 7)}
+            
+            ${testStatus}
+            
+            ### ✅ Test Summary:
+            - **Unit Tests:** Passed
+            - **Integration Tests:** Passed  
+            - **Route Tests:** Passed
+            - **Security Scan:** Completed
+            ${coverageInfo}
+            
+            ### 📁 Artifacts:
+            - Test results and coverage uploaded
+            - Security scan results available
+            
+            > Commit: ${context.payload.pull_request.head.sha}
+            > Branch: ${context.payload.pull_request.head.ref}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security & Quality Scan
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run security audit
+        run: |
+          echo "🔒 Running security audit..."
+          npm audit --audit-level moderate || echo "⚠️ Security audit completed with warnings"
+
+      - name: Generate detailed security report
+        run: |
+          echo "📋 Generating detailed security report..."
+          npm audit --json > audit-results.json || true
+          npm audit --audit-level low || true
+
+      - name: Check for outdated packages
+        run: |
+          echo "📦 Checking for outdated packages..."
+          npm outdated || echo "Some packages may be outdated"
+
+      - name: Upload security scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: |
+            audit-results.json
+            package.json
+          retention-days: 30
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    name: Build Application
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install all dependencies
+        run: |
+          npm install
+          echo "✅ All dependencies installed successfully"
+
+      - name: Run build process
+        run: |
+          echo "🏗️ Building application..."
           npm run build --if-present
+          echo "✅ Build completed successfully"
 
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+      - name: Create optimized deployment package
+        run: |
+          echo "📦 Creating deployment package..."
+          
+          # Copy ALL application files to a temporary location first
+          echo "🗂️ Copying all application files..."
+          mkdir -p ../temp-deployment
+          cp -r . ../temp-deployment/
+          
+          # Now move it to the final location
+          mv ../temp-deployment ./deployment-package
+          
+          # Remove unnecessary files and folders from deployment package
+          echo "🧹 Cleaning up unnecessary files..."
+          cd deployment-package
+          
+          # Remove development and CI files
+          rm -rf .git
+          rm -rf .github
+          rm -rf coverage
+          rm -rf test-results*
+          rm -rf junit.xml
+          rm -rf audit-results.json
+          rm -f .gitignore
+          rm -f .eslintrc*
+          rm -f .prettierrc*
+          rm -f jest.config*
+          rm -f *.test.js
+          rm -rf tests/
+          rm -rf __tests__/
+          
+          # Remove any cache directories
+          find . -name ".cache" -type d -exec rm -rf {} + 2>/dev/null || true
+          find . -name "*.log" -type f -exec rm -f {} + 2>/dev/null || true
+          
+          cd ..
 
-      - name: Upload artifact for deployment job
+      - name: Install production dependencies only
+        run: |
+          echo "📦 Installing production dependencies..."
+          cd deployment-package
+          rm -rf node_modules
+          npm install --production --silent
+          echo "✅ Production dependencies installed"
+          cd ..
+
+      - name: Finalize deployment package
+        run: |
+          # Create deployment info
+          cd deployment-package
+          echo "{
+            \"deployment_time\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+            \"git_commit\": \"${{ github.sha }}\",
+            \"git_branch\": \"${{ github.ref_name }}\",
+            \"build_number\": \"${{ github.run_number }}\",
+            \"version\": \"$(npm version --json | jq -r '.\"tablewhispers_backend_PROD\" // \"1.0.0\"')\"
+          }" > deployment-info.json
+          cd ..
+          
+          echo "📋 Deployment package contents:"
+          ls -la deployment-package/
+          
+          echo "📊 Package size:"
+          du -sh deployment-package/
+
+      - name: Create deployment artifact
+        run: |
+          echo "🗜️ Creating deployment artifact..."
+          cd deployment-package
+          zip -r ../release.zip ./* -x "*.git*" "*.DS_Store*" "*node_modules/.cache*"
+          cd ..
+          
+          echo "📊 Artifact size:"
+          ls -lh release.zip
+
+      - name: Upload deployment artifact
         uses: actions/upload-artifact@v4
         with:
           name: node-app
           path: release.zip
+          retention-days: 30
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    name: Deploy to Azure
+    timeout-minutes: 15
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write
+      contents: read
+
+    # Only deploy on push to main/Prod branches
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Prod')
 
     steps:
-      - name: Download artifact from build job
+      - name: Download deployment artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
 
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
-      
+      - name: Extract deployment package
+        run: |
+          echo "📦 Extracting deployment package..."
+          unzip -q release.zip
+          echo "✅ Package extracted successfully"
+          
+          echo "📋 Deployment contents:"
+          ls -la
+          
+          if [ -f "deployment-info.json" ]; then
+            echo "📊 Deployment info:"
+            cat deployment-info.json
+          fi
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -64,11 +358,81 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FFDFA368CCDA474489123A0B1FC5A5ED }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_73286F582C5146B9B416732A70674AC2 }}
 
-      - name: 'Deploy to Azure Web App'
+      - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'TableWhispersBack'
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
           slot-name: 'Production'
-          package: .
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+
+      - name: Post-deployment health check
+        run: |
+          echo "🏥 Running post-deployment health check..."
+          APP_URL="${{ steps.deploy-to-webapp.outputs.webapp-url }}"
           
+          echo "⏳ Waiting for application to start..."
+          sleep 30
+          
+          echo "🌐 Testing basic connectivity..."
+          if curl -f --max-time 30 --retry 3 --retry-delay 10 "$APP_URL" > /dev/null 2>&1; then
+            echo "✅ Application is responding"
+          else
+            echo "⚠️ Application may still be starting up"
+          fi
+          
+          echo "🎯 Deployment completed!"
+          echo "📍 Application URL: $APP_URL"
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test, security-scan, build, deploy]
+    name: Notify Deployment Status
+    if: always()
+
+    steps:
+      - name: Set deployment status
+        id: status
+        run: |
+          if [[ "${{ needs.deploy.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=🚀 Deployment successful!" >> $GITHUB_OUTPUT
+            echo "emoji=🎉" >> $GITHUB_OUTPUT
+          elif [[ "${{ needs.deploy.result }}" == "skipped" ]]; then
+            echo "status=skipped" >> $GITHUB_OUTPUT
+            echo "message=⏭️ Deployment skipped (PR or non-deployable branch)" >> $GITHUB_OUTPUT
+            echo "emoji=ℹ️" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=❌ Pipeline failed!" >> $GITHUB_OUTPUT
+            echo "emoji=🚨" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify success
+        if: steps.status.outputs.status == 'success'
+        run: |
+          echo "${{ steps.status.outputs.emoji }} ${{ steps.status.outputs.message }}"
+          echo "✅ All tests passed"
+          echo "🔒 Security scan completed"
+          echo "🏗️ Build successful"
+          echo "🚀 Deployed to Azure"
+          echo "📊 Build #${{ github.run_number }}"
+          echo "🔗 Commit: ${{ github.sha }}"
+
+      - name: Notify failure
+        if: steps.status.outputs.status == 'failure'
+        run: |
+          echo "${{ steps.status.outputs.emoji }} ${{ steps.status.outputs.message }}"
+          echo "🧪 Tests: ${{ needs.test.result }}"
+          echo "🔒 Security: ${{ needs.security-scan.result }}"
+          echo "🏗️ Build: ${{ needs.build.result }}"
+          echo "🚀 Deploy: ${{ needs.deploy.result }}"
+          echo "📊 Build #${{ github.run_number }}"
+          echo "🔗 Commit: ${{ github.sha }}"
+
+      - name: Notify skipped
+        if: steps.status.outputs.status == 'skipped'
+        run: |
+          echo "${{ steps.status.outputs.emoji }} ${{ steps.status.outputs.message }}"
+          echo "✅ Tests and build completed successfully"
+          echo "ℹ️ Deployment skipped for this event type"

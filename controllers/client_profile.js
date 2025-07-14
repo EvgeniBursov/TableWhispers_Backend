@@ -59,7 +59,7 @@ const userData = async (req, res) => {
             restaurantDescription: order.restaurant?.description || "",
             guests: order.guests || 0,
             status: order.status || "",
-            orderDate: formatDate(order.orderDate),
+            orderDate: formatDate(order.start_time),
             orderStart: formatTime(order.start_time),
             orderEnd: formatTime(order.end_time)
           };

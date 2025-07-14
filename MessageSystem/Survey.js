@@ -2,7 +2,7 @@ const SurveyResponse = require('../models/Survey_Schema');
 const UserOrder = require('../models/User_Order');
 const ClientUser = require('../models/Client_User');
 const ClientGuest = require('../models/ClientGuest');
-
+const restaurants = require('../models/Restarunt')
 
 // Validate survey request and get order details
 const validateSurvey = async (req, res) => {
@@ -98,7 +98,7 @@ const submitSurvey = async (req, res) => {
     }
     
     // Check if survey already submitted for this order
-    const existingSurvey = await SurveyResponse.findOne({ order_id });
+    const existingSurvey = await SurveyResponse.findOne({ order_id: order_id });
     if (existingSurvey) {
       return res.status(400).json({ 
         success: false, 
@@ -113,6 +113,28 @@ const submitSurvey = async (req, res) => {
     });
     
     await surveyResponse.save();
+    
+    const sumRatings = ratingFields.reduce((sum, field) => sum + ratings[field], 0);
+    const rawAvg = sumRatings / ratingFields.length;
+    let roundedAvg;
+    const floorPart = Math.floor(rawAvg);
+    const fraction = rawAvg - floorPart;
+    if (fraction >= 0.5) {
+      roundedAvg = Math.ceil(rawAvg);
+    } else {
+      roundedAvg = Math.floor(rawAvg);
+    }
+    const populatedRestaurant = await UserOrder.findById(order_id)
+    .populate('restaurant');
+    const restaurant = populatedRestaurant.restaurant;
+    const oldCount = restaurant.number_of_rating || 0;
+    const newCount = oldCount + 1;
+    restaurant.number_of_rating = newCount;
+    const oldRating = restaurant.rating;
+    const newTotal = oldRating * oldCount + roundedAvg;
+    const newAvg = parseFloat((newTotal / newCount).toFixed(1));
+    restaurant.rating = newAvg;
+    await restaurant.save();
     
     res.status(201).json({
       success: true,
