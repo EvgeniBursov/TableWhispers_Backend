@@ -760,6 +760,8 @@ const create_Reservation = async (req, res) => {
   const requestedTableId = req.body.tableId;
   const requestedTableNumber = req.body.tableNumber;
   
+  var roomName = `restaurant_${restaurantId}`;
+
   let userEmail = req.body.user_email;
   let phone = null;
   let fullName = null;
@@ -1022,7 +1024,7 @@ const create_Reservation = async (req, res) => {
     
     const io = req.app.get('socketio');
     if (io) {
-      io.emit('reservationCreated', {
+      io.to(roomName).emit('reservationCreated', {
         newReservation: {
           id: savedOrder._id,
           customer: {
@@ -1445,6 +1447,7 @@ const update_Reservation_Status = async (req, res) => {
   const restaurant_id = req.body.restaurant_id;
   const client_email = req.body.client_email;
   const client_name = req.body.client_name;
+  var roomName = `restaurant_${restaurant_id}`;
   
   try {
     // Find the reservation first to check its client_type
@@ -1528,7 +1531,7 @@ const update_Reservation_Status = async (req, res) => {
     // Emit socket events if Socket.IO is available
     if (io) {
       // First event: reservationUpdated - general update
-      io.emit('reservationUpdated', {
+      io.to(roomName).emit('reservationUpdated', {
         reservationId: reservation_id,
         newStatus: status,
         updatedReservation: formattedReservation,
@@ -1536,7 +1539,7 @@ const update_Reservation_Status = async (req, res) => {
       });
       
       // Second event: reservationStatusChanged - specific status change
-      io.emit('reservationStatusChanged', {
+      io.to(roomName).emit('reservationStatusChanged', {
         reservationId: reservation_id,
         newStatus: status,
         customerEmail: customerEmail,
@@ -1673,7 +1676,7 @@ const update_Reservation_Details = async (req, res) => {
   const restaurant_id = req.body.restaurant_id;
   const client_email = req.body.client_email;
   const client_name = req.body.client_name;
-  
+  var roomName = `restaurant_${restaurant_id}`;
   const io = req.app.get('socketio');
   
   try {
@@ -1993,13 +1996,13 @@ const update_Reservation_Details = async (req, res) => {
     };
     
     if (io) {
-      io.emit('reservationUpdated', {
+      io.to(roomName).emit('reservationUpdated', {
         reservationId: reservation_id,
         updatedFields: updatedFields,
         timestamp: new Date()
       });
       
-      io.emit('reservationDetailsChanged', updateDetails);
+      io.to(roomName).emit('reservationDetailsChanged', updateDetails);
       
       if (notify_all) {
         if (restaurantId) {

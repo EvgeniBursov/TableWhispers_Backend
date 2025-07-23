@@ -1079,7 +1079,7 @@ const createTableReservation = async (req, res) => {
       });
       
       // Emit general event for all clients
-      io.emit('reservationCreated', {
+      io.to(roomName).emit('reservationCreated', {
         reservationId: savedReservation._id,
         restaurantId: restaurant_id,
         tableNumber: table.table_number,
