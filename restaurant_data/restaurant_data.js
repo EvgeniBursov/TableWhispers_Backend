@@ -2103,8 +2103,8 @@ async function getCustomerName(reservation) {
 }
 
 const get_Customer_Reservation_History = async (req, res) => {
-  ////console.log("Start GET Reservation History");
-  const { customer_id, email } = req.query;
+  //console.log("Start GET Reservation History",req.query.restaurantId);
+  const { customer_id, email, restaurantId } = req.query;
   
   try {
     let clientData;
@@ -2128,7 +2128,13 @@ const get_Customer_Reservation_History = async (req, res) => {
       });
     }
     
-    const customerOrders = await UserOrder.find({ client_id: clientData._id })
+    // בניית query עם סינון לפי מסעדה אם יש restaurantId
+    const queryConditions = { client_id: clientData._id };
+    if (restaurantId) {
+      queryConditions.restaurant = restaurantId;
+    }
+    
+    const customerOrders = await UserOrder.find(queryConditions)
       .populate('restaurant', 'res_name phone_number city')
       .sort({ start_time: -1 });
     
