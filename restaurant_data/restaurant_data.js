@@ -66,18 +66,16 @@ const all_Restaurants_Data = async (req, res) => {
 
 
 const Restaurants_Reservation = async (req, res) => {
-  ////console.log("Start Restaurants_Reservation");
+  //console.log("Start Restaurants_Reservation");
   const restaurantId = req.params.id;
   if (!restaurantId) {
     return res.status(400).json({ error: 'Restaurant ID is undefined' });
   }
 
   try {
-    // Find all reservations for this restaurant
     const restaurant = await restaurants.findById(restaurantId)
       .populate({
         path: 'reservation_id',
-        // Don't populate client_id yet
       })
       .select('res_name phone_number city full_address description rating reservation_id tables')
       .lean();
@@ -91,53 +89,85 @@ const Restaurants_Reservation = async (req, res) => {
 
     const reservations = restaurant.reservation_id || [];
     
-    // Process each reservation to get client information
     const processedReservations = [];
     
     for (const reservation of reservations) {
       let customerInfo = null;
       
-      // First, try to find a registered user
       if (reservation.client_id) {
-        const registeredUser = await ClientUser.findById(reservation.client_id)
-          .populate('allergies', 'name severity')
-          .lean();
-        
-        if (registeredUser) {
-          customerInfo = {
-            id: registeredUser._id,
-            firstName: registeredUser.first_name,
-            lastName: registeredUser.last_name,
-            email: registeredUser.email,
-            phone: registeredUser.phone_number,
-            allergies: registeredUser.allergies?.map(allergy => ({
-              name: allergy.name,
-              severity: allergy.severity
-            })) || [],
-            userType: 'registered',
-            profileImage: registeredUser.profileImage,
-            age: registeredUser.age
-          };
+        if (reservation.client_type === 'ClientUser') {
+          const registeredUser = await ClientUser.findById(reservation.client_id)
+            .populate('allergies', 'name severity')
+            .lean();
+          
+          if (registeredUser) {
+            customerInfo = {
+              id: registeredUser._id,
+              firstName: registeredUser.first_name,
+              lastName: registeredUser.last_name,
+              email: registeredUser.email,
+              phone: registeredUser.phone_number,
+              allergies: registeredUser.allergies?.map(allergy => ({
+                name: allergy.name,
+                severity: allergy.severity
+              })) || [],
+              userType: 'registered',
+              profileImage: registeredUser.profileImage,
+              age: registeredUser.age
+            };
+          }
+        } else if (reservation.client_type === 'ClientGuest') {
+          const guestUser = await ClientGuest.findById(reservation.client_id).lean();
+          
+          if (guestUser) {
+            customerInfo = {
+              id: guestUser._id,
+              firstName: guestUser.first_name,
+              lastName: guestUser.last_name,
+              email: guestUser.email,
+              phone: guestUser.phone_number,
+              allergies: [],
+              userType: 'guest'
+            };
+          }
+        } else {
+          const registeredUser = await ClientUser.findById(reservation.client_id)
+            .populate('allergies', 'name severity')
+            .lean();
+          
+          if (registeredUser) {
+            customerInfo = {
+              id: registeredUser._id,
+              firstName: registeredUser.first_name,
+              lastName: registeredUser.last_name,
+              email: registeredUser.email,
+              phone: registeredUser.phone_number,
+              allergies: registeredUser.allergies?.map(allergy => ({
+                name: allergy.name,
+                severity: allergy.severity
+              })) || [],
+              userType: 'registered',
+              profileImage: registeredUser.profileImage,
+              age: registeredUser.age
+            };
+          } else {
+            const guestUser = await ClientGuest.findById(reservation.client_id).lean();
+            
+            if (guestUser) {
+              customerInfo = {
+                id: guestUser._id,
+                firstName: guestUser.first_name,
+                lastName: guestUser.last_name,
+                email: guestUser.email,
+                phone: guestUser.phone_number,
+                allergies: [],
+                userType: 'guest'
+              };
+            }
+          }
         }
       }
-
-      if (!customerInfo) {
-        const guestUser = await ClientGuest.findOne({
-
-        }).lean();
-        
-        if (guestUser) {
-          customerInfo = {
-            id: guestUser._id,
-            firstName: guestUser.first_name,
-            lastName: guestUser.last_name,
-            email: guestUser.email,
-            phone: guestUser.phone_number,
-            allergies: [],
-            userType: 'guest'
-          };
-        }
-      }
+      
       processedReservations.push({
         id: reservation._id,
         orderDetails: {
@@ -167,7 +197,7 @@ const Restaurants_Reservation = async (req, res) => {
       reservations: processedReservations
     };
     
-    ////console.log("END of Restaurants_Reservation");
+    ///console.log("END of Restaurants_Reservation",formattedResponse);
     res.status(200).json(formattedResponse);
 
   } catch (error) {
@@ -179,6 +209,7 @@ const Restaurants_Reservation = async (req, res) => {
     });
   }
 };
+
 
 const add_New_Reviews = async (req, res) => {
   try {
